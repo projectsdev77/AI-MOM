@@ -1,67 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/providers/service_providers.dart';
+import '../../core/repositories/chat_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 
-class _Session {
-  const _Session(this.title, this.preview, this.date);
-  final String title;
-  final String preview;
-  final String date;
-}
-
-const _sessions = [
-  _Session('Overdue report', "Mom, I know, I know...", 'Today'),
-  _Session('Sunday check-in', 'Weekly wrap-up with Mom', 'Sun'),
-  _Session('Water reminder pushback', "I'm drinking coffee, does that count?", 'Fri'),
-];
-
 /// Full conversation history — every past chat session, listed newest
 /// first, tap to reopen. Mirrors Claude's own "recents" pattern.
-class ChatHistoryScreen extends StatelessWidget {
+/// Pops with the tapped session's id.
+class ChatHistoryScreen extends ConsumerWidget {
   const ChatHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final userId = ref.watch(supabaseClientProvider).auth.currentUser?.id;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Recents')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        itemCount: _sessions.length,
-        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-        itemBuilder: (context, i) {
-          final s = _sessions[i];
-          return Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: theme.cardTheme.color,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-              border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(s.title, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 2),
-                      Text(
-                        s.preview,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
+      body: userId == null
+          ? const SizedBox.shrink()
+          : FutureBuilder<List<ChatSessionSummary>>(
+              future: ref.read(chatRepositoryProvider).fetchSessions(userId),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator(color: AppColors.accent));
+                }
+                final sessions = snapshot.data!;
+                if (sessions.isEmpty) {
+                  return Center(
+                    child: Text('No conversations yet.', style: theme.textTheme.bodySmall),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  itemCount: sessions.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, i) {
+                    final s = sessions[i];
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+                      onTap: () => Navigator.of(context).pop(s.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color: theme.cardTheme.color,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+                          border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                s.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium,
+                              ),
+                            ),
+                            Text(DateFormat('MMM d').format(s.lastMessageAt), style: theme.textTheme.labelSmall),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-                Text(s.date, style: theme.textTheme.labelSmall),
-              ],
+                    );
+                  },
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }

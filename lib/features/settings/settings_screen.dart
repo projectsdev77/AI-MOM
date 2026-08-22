@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/models/plan.dart';
-import '../../core/providers/app_state_provider.dart';
+import '../../core/providers/service_providers.dart';
+import '../../core/services/purchases_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/section_header.dart';
@@ -11,10 +12,35 @@ import '../../core/widgets/section_header.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _confirmAndRun({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required Future<void> Function() action,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(confirmLabel, style: const TextStyle(color: AppColors.moodDisappointed)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await action();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plan = ref.watch(planProvider);
-    final name = ref.watch(userNameProvider);
+    final user = ref.watch(supabaseClientProvider).auth.currentUser;
+    final authService = ref.read(authServiceProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -27,14 +53,29 @@ class SettingsScreen extends ConsumerWidget {
         ),
         children: [
           _Group(title: 'Account', rows: [
-            _Row(icon: LucideIcons.user, label: 'Profile', value: name),
-            const _Row(icon: LucideIcons.mail, label: 'Change email'),
+            _Row(icon: LucideIcons.user, label: 'Profile', value: user?.userMetadata?['name'] as String? ?? ''),
+            _Row(icon: LucideIcons.mail, label: 'Change email', value: user?.email ?? ''),
             const _Row(icon: LucideIcons.lock, label: 'Change password'),
-            const _Row(icon: LucideIcons.userX, label: 'Delete account', destructive: true),
+            _Row(
+              icon: LucideIcons.userX,
+              label: 'Delete account',
+              destructive: true,
+              onTap: () => _confirmAndRun(
+                context: context,
+                title: 'Delete your account?',
+                message: 'This permanently deletes your tasks, chat history, spending, and health data. This cannot be undone.',
+                confirmLabel: 'Delete',
+                action: authService.deleteAccount,
+              ),
+            ),
           ]),
           _Group(title: 'Subscription', rows: [
             _Row(icon: LucideIcons.crown, label: 'Current plan', value: plan.displayName),
-            const _Row(icon: LucideIcons.refreshCw, label: 'Restore purchases'),
+            _Row(
+              icon: LucideIcons.refreshCw,
+              label: 'Restore purchases',
+              onTap: PurchasesService.restorePurchases,
+            ),
             const _Row(icon: LucideIcons.externalLink, label: 'Manage subscription'),
           ]),
           const _Group(title: 'Mom', rows: [
@@ -55,8 +96,18 @@ class SettingsScreen extends ConsumerWidget {
             _Row(icon: LucideIcons.shieldCheck, label: 'Privacy Policy'),
             _Row(icon: LucideIcons.scrollText, label: 'Open-source licenses'),
           ]),
-          const _Group(title: 'Session', rows: [
-            _Row(icon: LucideIcons.logOut, label: 'Log out', destructive: false),
+          _Group(title: 'Session', rows: [
+            _Row(
+              icon: LucideIcons.logOut,
+              label: 'Log out',
+              onTap: () => _confirmAndRun(
+                context: context,
+                title: 'Log out?',
+                message: "You'll need to sign back in to see your tasks and chats.",
+                confirmLabel: 'Log out',
+                action: authService.signOut,
+              ),
+            ),
           ]),
           const SizedBox(height: AppSpacing.lg),
           const _DebugPlanToggle(),
@@ -104,18 +155,19 @@ class _Group extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.label, this.value, this.destructive = false});
+  const _Row({required this.icon, required this.label, this.value, this.destructive = false, this.onTap});
   final IconData icon;
   final String label;
   final String? value;
   final bool destructive;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = destructive ? AppColors.moodDisappointed : theme.colorScheme.onSurface;
     return InkWell(
-      onTap: () {},
+      onTap: onTap ?? () {},
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
         child: Row(
@@ -123,7 +175,7 @@ class _Row extends StatelessWidget {
             Icon(icon, size: 20, color: color),
             const SizedBox(width: AppSpacing.md),
             Expanded(child: Text(label, style: theme.textTheme.bodyLarge?.copyWith(color: color))),
-            if (value != null)
+            if (value != null && value!.isNotEmpty)
               Text(value!, style: theme.textTheme.bodySmall),
             const SizedBox(width: AppSpacing.xs),
             Icon(LucideIcons.chevronRight, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.35)),
@@ -157,7 +209,7 @@ class _DebugPlanToggle extends ConsumerWidget {
           Switch(
             value: plan.isFull,
             activeThumbColor: AppColors.accent,
-            onChanged: (v) => ref.read(planProvider.notifier).state =
+            onChanged: (v) => ref.read(debugPlanOverrideProvider.notifier).state =
                 v ? AppPlan.full : AppPlan.basic,
           ),
         ],

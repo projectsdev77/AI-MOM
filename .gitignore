@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local secrets (dart-define-from-file) — see README.md
+/config/local.json

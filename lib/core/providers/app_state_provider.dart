@@ -1,68 +1,78 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/plan.dart';
 import '../models/task_item.dart';
 import '../theme/mom_mood.dart';
 import '../widgets/mom_avatar.dart';
+import 'service_providers.dart';
 
-/// Demo/mock state for the UI shell — no backend wired up yet. Swap these
-/// providers for ones backed by Supabase once the API layer exists.
-
-final userNameProvider = StateProvider<String>((ref) => 'Alex');
-
-final planProvider = StateProvider<AppPlan>((ref) => AppPlan.basic);
+/// [momAvatarStyleProvider] is genuinely local state during onboarding,
+/// then seeded from the saved profile after sign-in — see
+/// [effectiveMomAvatarProvider]. [planProvider] now lives in
+/// service_providers.dart, driven by RevenueCat entitlements.
 
 final momAvatarStyleProvider =
     StateProvider<MomAvatarStyle>((ref) => MomAvatarStyle.terracotta);
 
+/// The avatar to actually render: the saved profile once one exists,
+/// otherwise whatever's currently selected in onboarding.
+final effectiveMomAvatarProvider = Provider<MomAvatarStyle>((ref) {
+  final profile = ref.watch(profileProvider).valueOrNull;
+  final savedStyle = profile?['mom_avatar_style'] as String?;
+  if (savedStyle != null) return MomAvatarStyle.values.byName(savedStyle);
+  return ref.watch(momAvatarStyleProvider);
+});
+
 class TasksNotifier extends Notifier<List<TaskItem>> {
   @override
-  List<TaskItem> build() => const [
-        TaskItem(
-          id: 't1',
-          title: 'Drink 8 glasses of water',
-          category: TaskCategory.health,
-          recurrence: RecurrenceType.daily,
-          streakCount: 6,
-          streakFreezesAvailable: 1,
-          dueTime: 'All day',
-        ),
-        TaskItem(
-          id: 't2',
-          title: 'Finish quarterly report',
-          category: TaskCategory.work,
-          dueTime: '5:00 PM',
-        ),
-        TaskItem(
-          id: 't3',
-          title: 'Take out the trash',
-          category: TaskCategory.chores,
-          recurrence: RecurrenceType.weekly,
-          streakCount: 2,
-          dueTime: '8:00 PM',
-        ),
-        TaskItem(
-          id: 't4',
-          title: 'Log today\'s spending',
-          category: TaskCategory.money,
-          recurrence: RecurrenceType.daily,
-          streakCount: 12,
-          streakFreezesAvailable: 2,
-          dueTime: '9:00 PM',
-        ),
-        TaskItem(
-          id: 't5',
-          title: 'Call the dentist',
-          category: TaskCategory.personal,
-          dueTime: '11:00 AM',
-        ),
-      ];
+  List<TaskItem> build() {
+    Future.microtask(refresh);
+    return const [];
+  }
 
-  void toggleDone(String id) {
+  Future<void> refresh() async {
+    final userId = ref.read(authServiceProvider).currentUser?.id;
+    if (userId == null) return;
+    state = await ref.read(tasksRepositoryProvider).fetchTasks(userId);
+  }
+
+  Future<void> toggleDone(String id) async {
+    final userId = ref.read(authServiceProvider).currentUser?.id;
+    if (userId == null) return;
+    final task = state.firstWhere((t) => t.id == id);
+    final newDone = !task.done;
+
+    // Flip immediately for a responsive UI; reconcile with the server
+    // (which owns streak_count via a trigger) once the write lands.
     state = [
       for (final t in state)
-        if (t.id == id) t.copyWith(done: !t.done) else t,
+        if (t.id == id) t.copyWith(done: newDone) else t,
     ];
+
+    try {
+      await ref.read(tasksRepositoryProvider).setDone(taskId: id, userId: userId, done: newDone);
+      await refresh();
+    } catch (_) {
+      state = [
+        for (final t in state)
+          if (t.id == id) t.copyWith(done: !newDone) else t,
+      ];
+    }
+  }
+
+  Future<void> addTask({
+    required String title,
+    required TaskCategory category,
+    RecurrenceType recurrence = RecurrenceType.none,
+  }) async {
+    final userId = ref.read(authServiceProvider).currentUser?.id;
+    if (userId == null) return;
+    await ref.read(tasksRepositoryProvider).addTask(
+          userId: userId,
+          title: title,
+          category: category,
+          recurrence: recurrence,
+        );
+    await refresh();
   }
 }
 

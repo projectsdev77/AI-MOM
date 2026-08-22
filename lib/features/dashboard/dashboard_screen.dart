@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/models/plan.dart';
 import '../../core/models/task_item.dart';
 import '../../core/providers/app_state_provider.dart';
+import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
@@ -28,11 +29,13 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final name = ref.watch(userNameProvider);
+    final profile = ref.watch(profileProvider).valueOrNull;
+    final profileName = (profile?['name'] as String?)?.trim();
+    final name = (profileName != null && profileName.isNotEmpty) ? profileName : 'there';
     final tasks = ref.watch(tasksProvider);
     final mood = ref.watch(momMoodProvider);
     final message = ref.watch(momMessageProvider);
-    final momAvatar = ref.watch(momAvatarStyleProvider);
+    final momAvatar = ref.watch(effectiveMomAvatarProvider);
     final plan = ref.watch(planProvider);
 
     final today = tasks.take(4).toList();

@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/routing/go_router_refresh_stream.dart';
 import 'features/chat/chat_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/onboarding/onboarding_flow.dart';
@@ -10,6 +12,16 @@ import 'features/track/track_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/onboarding',
+  refreshListenable: GoRouterRefreshStream(
+    Supabase.instance.client.auth.onAuthStateChange,
+  ),
+  redirect: (context, state) {
+    final loggedIn = Supabase.instance.client.auth.currentSession != null;
+    final onOnboarding = state.matchedLocation == '/onboarding';
+    if (!loggedIn && !onOnboarding) return '/onboarding';
+    if (loggedIn && onOnboarding) return '/dashboard';
+    return null;
+  },
   routes: [
     GoRoute(
       path: '/onboarding',

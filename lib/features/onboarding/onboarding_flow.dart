@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/providers/app_state_provider.dart';
+import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/primary_button.dart';
 
-/// Onboarding answers are collected here and feed the backend fields that
-/// personalize Mom's chat context and notification cadence once wired up.
+/// Onboarding answers are collected here, then written to `profiles`
+/// once the account is created — see [_OnboardingFlowState._submit].
 class OnboardingFlow extends ConsumerStatefulWidget {
   const OnboardingFlow({super.key});
 
@@ -26,9 +26,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _pageController = PageController();
   int _step = 0;
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _goals = <String>{};
   final _procrastination = <String>{};
   String _frequency = _frequencyOptions.first;
+  bool _submitting = false;
+  String? _error;
 
   static const _totalSteps = 6;
 
@@ -36,27 +40,85 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void dispose() {
     _pageController.dispose();
     _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  void _next() {
-    if (_step == _totalSteps - 1) {
-      if (_nameController.text.trim().isNotEmpty) {
-        ref.read(userNameProvider.notifier).state = _nameController.text.trim();
-      }
-      context.go('/dashboard');
-      return;
-    }
-    setState(() => _step++);
+  void _goToStep(int step) {
+    setState(() => _step = step);
     _pageController.animateToPage(
-      _step,
+      step,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
   }
 
+  Future<void> _submit() async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final auth = ref.read(authServiceProvider);
+      await auth.signUpWithEmail(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+      );
+      await _saveOnboardingAnswers();
+      // The router's auth-state listener takes it from here and redirects
+      // to /dashboard once the session is set.
+    } catch (e) {
+      setState(() => _error = _friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _saveOnboardingAnswers() async {
+    final userId = ref.read(authServiceProvider).currentUser?.id;
+    if (userId == null) return;
+    await ref.read(profileRepositoryProvider).saveOnboardingAnswers(
+          userId: userId,
+          momAvatarStyle: ref.read(momAvatarStyleProvider).name,
+          goals: _goals.toList(),
+          procrastinationAreas: _procrastination.toList(),
+          checkInFrequency: _frequency,
+        );
+  }
+
+  Future<void> _socialSignIn(Future<void> Function() signIn) async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await signIn();
+      await _saveOnboardingAnswers();
+    } catch (e) {
+      setState(() => _error = _friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  String _friendlyError(Object e) {
+    final message = e.toString();
+    return message.length > 140 ? '${message.substring(0, 140)}...' : message;
+  }
+
+  void _next() {
+    if (_step == _totalSteps - 1) {
+      _submit();
+      return;
+    }
+    _goToStep(_step + 1);
+  }
+
   bool get _canContinue => switch (_step) {
         1 => _nameController.text.trim().isNotEmpty,
+        5 => !_submitting && _emailController.text.contains('@') && _passwordController.text.length >= 8,
         _ => true,
       };
 
@@ -111,14 +173,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     selected: _frequency,
                     onSelect: (f) => setState(() => _frequency = f),
                   ),
-                  const _AuthStep(),
+                  _AuthStep(
+                    emailController: _emailController,
+                    passwordController: _passwordController,
+                    onChanged: () => setState(() {}),
+                    submitting: _submitting,
+                    error: _error,
+                    onGoogleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithGoogle),
+                    onAppleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithApple),
+                  ),
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
               child: PrimaryButton(
-                label: _step == _totalSteps - 1 ? 'Create account' : 'Continue',
+                label: _step == _totalSteps - 1
+                    ? (_submitting ? 'Creating account...' : 'Create account')
+                    : 'Continue',
                 onPressed: _canContinue ? _next : null,
               ),
             ),
@@ -327,21 +399,84 @@ class _ChoiceCard extends StatelessWidget {
 }
 
 class _AuthStep extends StatelessWidget {
-  const _AuthStep();
+  const _AuthStep({
+    required this.emailController,
+    required this.passwordController,
+    required this.onChanged,
+    required this.submitting,
+    required this.error,
+    required this.onGoogleTap,
+    required this.onAppleTap,
+  });
+
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final VoidCallback onChanged;
+  final bool submitting;
+  final String? error;
+  final VoidCallback onGoogleTap;
+  final VoidCallback onAppleTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final fieldDecoration = InputDecoration(
+      filled: true,
+      fillColor: theme.cardTheme.color,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+        borderSide: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
+      ),
+    );
+
     return _StepScaffold(
       title: 'Create your account',
-      subtitle: "Save your Mom and pick up where you left off.",
-      child: Column(
+      subtitle: 'Save your Mom and pick up where you left off.',
+      child: ListView(
         children: [
-          _AuthButton(icon: LucideIcons.mail, label: 'Continue with email'),
+          TextField(
+            controller: emailController,
+            onChanged: (_) => onChanged(),
+            keyboardType: TextInputType.emailAddress,
+            enabled: !submitting,
+            decoration: fieldDecoration.copyWith(hintText: 'Email'),
+          ),
           const SizedBox(height: AppSpacing.sm),
-          _AuthButton(icon: LucideIcons.globe, label: 'Continue with Google'),
+          TextField(
+            controller: passwordController,
+            onChanged: (_) => onChanged(),
+            obscureText: true,
+            enabled: !submitting,
+            decoration: fieldDecoration.copyWith(hintText: 'Password (min. 8 characters)'),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(error!, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.moodDisappointed)),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(child: Divider(color: theme.dividerTheme.color)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                child: Text('or', style: theme.textTheme.labelSmall),
+              ),
+              Expanded(child: Divider(color: theme.dividerTheme.color)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _AuthButton(
+            icon: LucideIcons.globe,
+            label: 'Continue with Google',
+            onTap: submitting ? null : onGoogleTap,
+          ),
           const SizedBox(height: AppSpacing.sm),
-          _AuthButton(icon: LucideIcons.apple, label: 'Continue with Apple'),
+          _AuthButton(
+            icon: LucideIcons.apple,
+            label: 'Continue with Apple',
+            onTap: submitting ? null : onAppleTap,
+          ),
           const SizedBox(height: AppSpacing.lg),
           Text(
             'By continuing you agree to the Terms of Service and Privacy Policy.',
@@ -355,9 +490,10 @@ class _AuthStep extends StatelessWidget {
 }
 
 class _AuthButton extends StatelessWidget {
-  const _AuthButton({required this.icon, required this.label});
+  const _AuthButton({required this.icon, required this.label, required this.onTap});
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -365,7 +501,7 @@ class _AuthButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () {},
+        onPressed: onTap,
         icon: Icon(icon, size: 18),
         label: Text(label),
         style: OutlinedButton.styleFrom(
