@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/streak_check.dart';
+import 'add_task_sheet.dart';
 
 class TasksScreen extends ConsumerWidget {
   const TasksScreen({super.key});
@@ -27,7 +28,15 @@ class TasksScreen extends ConsumerWidget {
         backgroundColor: AppColors.accent,
         foregroundColor: Colors.white,
         elevation: 0,
-        onPressed: () {},
+        onPressed: () {
+          if (!plan.isFull && tasks.length >= plan.maxActiveTasks) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Basic Mom covers up to ${plan.maxActiveTasks} active items — upgrade for unlimited.')),
+            );
+            return;
+          }
+          showAddTaskSheet(context);
+        },
         child: const Icon(LucideIcons.plus),
       ),
       body: ListView(

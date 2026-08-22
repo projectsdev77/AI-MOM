@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/env.dart';
 import '../models/plan.dart';
 import '../repositories/chat_repository.dart';
+import '../repositories/finance_repository.dart';
+import '../repositories/health_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../repositories/tasks_repository.dart';
 import '../services/auth_service.dart';
@@ -29,6 +31,14 @@ final tasksRepositoryProvider = Provider<TasksRepository>(
 
 final chatRepositoryProvider = Provider<ChatRepository>(
   (ref) => ChatRepository(ref.watch(supabaseClientProvider)),
+);
+
+final financeRepositoryProvider = Provider<FinanceRepository>(
+  (ref) => FinanceRepository(ref.watch(supabaseClientProvider)),
+);
+
+final healthRepositoryProvider = Provider<HealthRepository>(
+  (ref) => HealthRepository(ref.watch(supabaseClientProvider)),
 );
 
 /// Emits whenever Supabase's auth state changes (sign in/out/token

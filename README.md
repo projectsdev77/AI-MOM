@@ -1,74 +1,130 @@
 # AI Mom
 
-A productivity and life-coaching app where your AI Mom checks in on you,
-tracks tasks, habits, spending, and health, and nags or encourages you in
-character. Flutter client, Supabase backend, Claude for chat, RevenueCat
-for subscriptions.
+A mobile app where an AI "Mom" checks in on you, tracks your tasks,
+habits, spending, and health, and nags or encourages you in character.
 
-## Stack
+This README explains what the app is built with, what outside services
+it needs, and how to get it running. Written in plain language on
+purpose — no assumed background.
 
-- **Client:** Flutter, Riverpod, go_router
-- **Backend:** Supabase (Postgres + Auth + Edge Functions) — schema in
-  `supabase/migrations/`, server logic in `supabase/functions/`
-- **Chat:** Claude (Anthropic API), called from the `mom-chat` edge
-  function so the API key never reaches the client
-- **Subscriptions:** RevenueCat, wrapping Apple/Google IAP (not Stripe —
-  in-app subscriptions consumed inside the app must go through
-  StoreKit/Play Billing per store policy)
+## What this app is built with
 
-## Running locally
+- **The app itself:** Flutter (one codebase for iPhone and Android)
+- **The database and login system:** Supabase
+- **Mom's chat brain:** Claude (made by Anthropic)
+- **Subscriptions (paid plans):** RevenueCat, which handles Apple and
+  Google's in-app purchase systems for us
 
-Nothing in this repo is configured with real secrets. You need:
+## Outside services this app depends on
 
-1. A Supabase project — apply `supabase/migrations/*.sql` in order (via
-   the SQL editor, or `supabase db push` if you have the CLI linked).
-2. `ANTHROPIC_API_KEY` set as a secret on the `mom-chat` edge function.
-3. A RevenueCat project with an entitlement called `full_mom`, and
-   `REVENUECAT_WEBHOOK_SECRET` set as a secret on the
-   `revenuecat-webhook` edge function (point RevenueCat's webhook at
-   that function's URL with the same secret as its Authorization header).
-4. A Google Cloud OAuth **Web** client ID for Google Sign-In (used as
-   `serverClientId` so the ID token Supabase receives has the right
-   audience), and Sign in with Apple configured for your bundle ID.
+None of these are optional — the app needs all of them to fully work.
+Here's what each one does, in plain terms:
 
-Deploy the edge functions with the Supabase CLI:
+| Service | What it's for | Costs money? |
+|---|---|---|
+| [Supabase](https://supabase.com) | Stores all the data (users, tasks, chats, spending, health) and handles login | Free to start |
+| [Anthropic](https://console.anthropic.com) | Powers Mom's chat replies | Pay-as-you-go, small amounts per message |
+| [RevenueCat](https://www.revenuecat.com) | Manages the Basic/Full subscription plans | Free to start |
+| Google Cloud Console | Lets people sign in with Google | Free |
+| Apple Developer Program | Lets people sign in with Apple, and is required to publish on the App Store either way | $99/year |
+
+We are **not** using Stripe for payments — Apple and Google require
+in-app subscriptions to go through their own payment systems, not a
+separate card processor like Stripe.
+
+## A note on accounts and keys
+
+I (the AI assistant) can't create these accounts for you. Signing up
+needs your own email, and some need a credit card or business details —
+that's not something I can or should do on your behalf. I also won't
+paste real passwords or API keys into our chat, even if I had them,
+since chat messages aren't a safe place to store secrets.
+
+What I've done instead: every part of the app that needs a secret reads
+it from a file that stays on your computer and is never uploaded to
+GitHub (see "Setup" below). You create the accounts, copy a few codes
+into that file, and everything connects.
+
+## Setup — step by step
+
+### 1. Install Flutter
+
+Follow Google's guide: https://docs.flutter.dev/get-started/install
+
+### 2. Create your accounts
+
+Go to each site below, sign up, and follow their basic "create a new
+project" steps. You don't need to configure anything advanced yet.
+
+1. **Supabase** — supabase.com → New Project
+2. **Anthropic** — console.anthropic.com → API Keys → Create Key
+3. **RevenueCat** — revenuecat.com → New Project
+4. **Google Cloud Console** — console.cloud.google.com → create an
+   OAuth "Web" client (needed even though this is a mobile app — it's
+   used to verify the sign-in token)
+5. **Apple Developer Program** — developer.apple.com (only needed when
+   you're ready to test/publish on iPhone)
+
+### 3. Set up the database
+
+In your Supabase project, open the SQL editor and run the two files in
+`supabase/migrations/` in order (0001 first, then 0002). This creates
+all the tables the app needs.
+
+### 4. Deploy the server-side code (edge functions)
+
+These run on Supabase's servers, not on the phone — this is where the
+Anthropic key lives, so it's never exposed to the app itself.
 
 ```
 supabase functions deploy mom-chat delete-account revenuecat-webhook
-supabase secrets set ANTHROPIC_API_KEY=... REVENUECAT_WEBHOOK_SECRET=...
+supabase secrets set ANTHROPIC_API_KEY=paste-your-key-here
+supabase secrets set REVENUECAT_WEBHOOK_SECRET=make-up-a-long-random-value
 ```
 
-Then run the app with those values as dart-defines. Easiest is a local,
-gitignored file:
+Then in RevenueCat's dashboard, add a webhook pointing at your
+`revenuecat-webhook` function's URL, with that same random value as the
+Authorization header.
 
-```json
-// config/local.json  (already gitignored)
-{
-  "SUPABASE_URL": "https://xxxx.supabase.co",
-  "SUPABASE_ANON_KEY": "...",
-  "REVENUECAT_IOS_KEY": "...",
-  "REVENUECAT_ANDROID_KEY": "...",
-  "GOOGLE_WEB_CLIENT_ID": "....apps.googleusercontent.com"
-}
+### 5. Give the app its keys
+
+Copy the example file and fill in the blanks — this file stays on your
+computer only, it's already set up to be ignored by git:
+
 ```
+cp config/local.json.example config/local.json
+```
+
+Open `config/local.json` and paste in the values from your Supabase,
+RevenueCat, and Google Cloud accounts (`.env.example` at the repo root
+explains where each value comes from).
+
+### 6. Run the app
 
 ```
 flutter run --dart-define-from-file=config/local.json
 ```
 
-Without these, the app shows a "missing configuration" screen instead of
-crashing (see `lib/core/config/`).
+If you skip step 5, the app still opens, but shows a plain "missing
+configuration" screen instead of crashing.
 
-## What's real vs. still mocked
+## What's working right now vs. still to build
 
-Wired to Supabase: auth (email/password, Google, Apple), onboarding
-answers, the unified task/habit model with server-side streak tracking,
-chat (via the `mom-chat` edge function, including the Basic-tier weekly
-message cap enforced server-side), account deletion, and RevenueCat
-entitlements driving the plan gate.
+**Working, connected to the real backend:**
+- Signing up / logging in (email, Google, Apple)
+- Onboarding questions save to your profile
+- Adding tasks/habits, checking them off, streaks
+- Chatting with Mom (with the free-plan weekly message limit enforced
+  for real, not just shown in the app)
+- Logging expenses and setting a budget
+- Logging water/sleep/movement and setting health goals
+- Deleting your account, logging out
+- The Basic vs. Full plan gate, driven by RevenueCat
 
-Still local-only / not built yet: adding a task from the UI (the FAB is
-a no-op), expense/budget entry, health logging, scheduled push
-notifications and the streak-decay cron (the SQL function exists in
-`0002_streak_decay.sql` — it needs `pg_cron` scheduled once the project
-is live), and the currency/units settings rows are display-only.
+**Not built yet:**
+- Push notifications / Mom's nagging messages (the plan for this is in
+  our chat history, not built yet)
+- The nightly "did you miss a streak" check needs to be scheduled in
+  Supabase (the logic exists in `0002_streak_decay.sql`, it just needs
+  to be turned on with `pg_cron` once you have a live project)
+- Currency and measurement-unit settings are display-only for now

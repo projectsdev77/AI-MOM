@@ -186,7 +186,14 @@ create policy "expenses: owner all" on public.expenses
 create table public.budgets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
-  category text, -- null = overall monthly budget
+  -- 'overall' = the whole-month budget; anything else is a per-category
+  -- budget. Deliberately NOT nullable: a nullable category plus a plain
+  -- `unique (user_id, category)` would silently allow duplicate overall
+  -- budgets, since Postgres treats every NULL as distinct from every
+  -- other NULL for uniqueness purposes. A plain string sentinel avoids
+  -- that trap and lets a normal upsert(onConflict: 'user_id,category')
+  -- work correctly.
+  category text not null default 'overall',
   amount_cents integer not null check (amount_cents >= 0),
   created_at timestamptz not null default now(),
   unique (user_id, category)
