@@ -1,0 +1,39 @@
+import 'package:go_router/go_router.dart';
+
+import 'features/chat/chat_screen.dart';
+import 'features/dashboard/dashboard_screen.dart';
+import 'features/onboarding/onboarding_flow.dart';
+import 'features/settings/settings_screen.dart';
+import 'features/shell/app_shell.dart';
+import 'features/tasks/tasks_screen.dart';
+import 'features/track/track_screen.dart';
+
+final appRouter = GoRouter(
+  initialLocation: '/onboarding',
+  routes: [
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => const OnboardingFlow(),
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),
+      branches: [
+        StatefulShellBranch(routes: [
+          GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(path: '/tasks', builder: (context, state) => const TasksScreen()),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(path: '/chat', builder: (context, state) => const ChatScreen()),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(path: '/track', builder: (context, state) => const TrackScreen()),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+        ]),
+      ],
+    ),
+  ],
+);
