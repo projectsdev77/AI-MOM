@@ -104,12 +104,14 @@ final cachedPlanProvider = Provider<AppPlan?>((ref) {
 
 /// Manual plan override for local development/demoing without a
 /// RevenueCat project configured — see the Settings screen's debug
-/// toggle. Ignored the moment a real entitlement or cached plan is
-/// available.
-final debugPlanOverrideProvider = StateProvider<AppPlan>((ref) => AppPlan.basic);
+/// toggle. `null` means "untouched", so it doesn't shadow the real
+/// cached plan until someone actually flips the switch; a real
+/// RevenueCat entitlement always wins over it either way.
+final debugPlanOverrideProvider = StateProvider<AppPlan?>((ref) => null);
 
 final planProvider = Provider<AppPlan>((ref) {
   return ref.watch(entitlementPlanProvider) ??
+      ref.watch(debugPlanOverrideProvider) ??
       ref.watch(cachedPlanProvider) ??
-      ref.watch(debugPlanOverrideProvider);
+      AppPlan.basic;
 });
