@@ -6,6 +6,7 @@
 // README.md) rather than a paid provider, so this can run without
 // anyone having to add payment anywhere.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const BASIC_WEEKLY_MESSAGE_LIMIT = 15;
@@ -16,8 +17,10 @@ interface ChatRequestBody {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return new Response('Missing Authorization header', { status: 401 });
+  if (!authHeader) return new Response('Missing Authorization header', { status: 401, headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
@@ -25,11 +28,11 @@ Deno.serve(async (req) => {
   });
 
   const { data: { user }, error: userError } = await userClient.auth.getUser();
-  if (userError || !user) return new Response('Invalid session', { status: 401 });
+  if (userError || !user) return new Response('Invalid session', { status: 401, headers: corsHeaders });
 
   const body: ChatRequestBody = await req.json();
   if (!body.message || !body.message.trim()) {
-    return new Response('message is required', { status: 400 });
+    return new Response('message is required', { status: 400, headers: corsHeaders });
   }
 
   const { data: profile } = await userClient
@@ -50,7 +53,7 @@ Deno.serve(async (req) => {
     if ((count ?? 0) >= BASIC_WEEKLY_MESSAGE_LIMIT) {
       return new Response(
         JSON.stringify({ error: 'weekly_limit_reached', limit: BASIC_WEEKLY_MESSAGE_LIMIT }),
-        { status: 402, headers: { 'Content-Type': 'application/json' } },
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
     remainingThisWeek = BASIC_WEEKLY_MESSAGE_LIMIT - (count ?? 0) - 1;
@@ -64,7 +67,7 @@ Deno.serve(async (req) => {
       .insert({ user_id: user.id, title: body.message.slice(0, 60) })
       .select('id')
       .single();
-    if (error || !session) return new Response('Could not create session', { status: 500 });
+    if (error || !session) return new Response('Could not create session', { status: 500, headers: corsHeaders });
     sessionId = session.id;
   }
 
@@ -117,7 +120,7 @@ Deno.serve(async (req) => {
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
       console.error('Gemini API error', geminiResponse.status, errorText);
-      return new Response('Mom is not answering right now.', { status: 502 });
+      return new Response('Mom is not answering right now.', { status: 502, headers: corsHeaders });
     }
 
     const geminiJson = await geminiResponse.json();
@@ -131,7 +134,7 @@ Deno.serve(async (req) => {
       // No usable text — most often Gemini's own safety filter blocked
       // the turn (finishReason "SAFETY"/"RECITATION" with no parts).
       console.error('Gemini returned no text', JSON.stringify(geminiJson));
-      return new Response('Mom is not answering right now.', { status: 502 });
+      return new Response('Mom is not answering right now.', { status: 502, headers: corsHeaders });
     }
   }
 
@@ -145,7 +148,7 @@ Deno.serve(async (req) => {
     .eq('id', sessionId);
 
   return new Response(JSON.stringify({ sessionId, reply, remainingThisWeek }), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
 

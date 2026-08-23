@@ -3,11 +3,14 @@
 // Runs with the service role key, which is only ever available inside
 // edge functions, never shipped to the client.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
-    return new Response('Missing Authorization header', { status: 401 });
+    return new Response('Missing Authorization header', { status: 401, headers: corsHeaders });
   }
 
   const userClient = createClient(
@@ -17,7 +20,7 @@ Deno.serve(async (req) => {
   );
   const { data: { user }, error: userError } = await userClient.auth.getUser();
   if (userError || !user) {
-    return new Response('Invalid session', { status: 401 });
+    return new Response('Invalid session', { status: 401, headers: corsHeaders });
   }
 
   const adminClient = createClient(
@@ -26,10 +29,10 @@ Deno.serve(async (req) => {
   );
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
   if (deleteError) {
-    return new Response(deleteError.message, { status: 500 });
+    return new Response(deleteError.message, { status: 500, headers: corsHeaders });
   }
 
   return new Response(JSON.stringify({ ok: true }), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
