@@ -76,7 +76,29 @@ all the tables the app needs.
 These run on Supabase's servers, not on the phone — this is where the
 Anthropic key lives, so it's never exposed to the app itself.
 
+First, install the Supabase command-line tool. Note: `npm install -g
+supabase` does **not** work — Supabase deliberately blocks that
+install method on every platform. Use one of these instead:
+
 ```
+# Windows (PowerShell) — install Scoop first if you don't have it:
+#   irm get.scoop.sh | iex
+scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+scoop install supabase
+
+# Mac
+brew install supabase/tap/supabase
+
+# Linux
+brew install supabase/tap/supabase   # if you have Homebrew on Linux
+# otherwise see https://github.com/supabase/cli#install-the-cli for a direct download
+```
+
+Then log in, connect to your project, and deploy:
+
+```
+supabase login
+supabase link --project-ref your-project-ref   # find this in Supabase → Project Settings → General
 supabase functions deploy mom-chat delete-account revenuecat-webhook
 supabase secrets set ANTHROPIC_API_KEY=paste-your-key-here
 supabase secrets set REVENUECAT_WEBHOOK_SECRET=make-up-a-long-random-value
