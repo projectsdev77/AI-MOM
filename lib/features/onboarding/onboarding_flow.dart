@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/config/preview_mode.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
@@ -181,6 +183,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     error: _error,
                     onGoogleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithGoogle),
                     onAppleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithApple),
+                    onPreviewTap: () {
+                      previewModeEnabled = true;
+                      context.go('/dashboard');
+                    },
                   ),
                 ],
               ),
@@ -317,13 +323,15 @@ class _MultiSelectStep extends StatelessWidget {
     return _StepScaffold(
       title: title,
       subtitle: subtitle,
-      child: Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.sm,
-        children: [
-          for (final o in options)
-            _ChoiceCard(label: o, selected: selected.contains(o), onTap: () => onToggle(o)),
-        ],
+      child: SingleChildScrollView(
+        child: Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final o in options)
+              _ChoiceCard(label: o, selected: selected.contains(o), onTap: () => onToggle(o)),
+          ],
+        ),
       ),
     );
   }
@@ -339,19 +347,21 @@ class _FrequencyStep extends StatelessWidget {
     return _StepScaffold(
       title: 'How often should Mom check in?',
       subtitle: 'You can change this later in Settings.',
-      child: Column(
-        children: [
-          for (final f in _frequencyOptions)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _ChoiceCard(
-                label: f,
-                selected: selected == f,
-                onTap: () => onSelect(f),
-                fullWidth: true,
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            for (final f in _frequencyOptions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: _ChoiceCard(
+                  label: f,
+                  selected: selected == f,
+                  onTap: () => onSelect(f),
+                  fullWidth: true,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -407,6 +417,7 @@ class _AuthStep extends StatelessWidget {
     required this.error,
     required this.onGoogleTap,
     required this.onAppleTap,
+    required this.onPreviewTap,
   });
 
   final TextEditingController emailController;
@@ -416,6 +427,7 @@ class _AuthStep extends StatelessWidget {
   final String? error;
   final VoidCallback onGoogleTap;
   final VoidCallback onAppleTap;
+  final VoidCallback onPreviewTap;
 
   @override
   Widget build(BuildContext context) {
@@ -482,6 +494,13 @@ class _AuthStep extends StatelessWidget {
             'By continuing you agree to the Terms of Service and Privacy Policy.',
             style: theme.textTheme.labelSmall,
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Center(
+            child: TextButton(
+              onPressed: submitting ? null : onPreviewTap,
+              child: const Text('Just want to look around? Preview without an account'),
+            ),
           ),
         ],
       ),
