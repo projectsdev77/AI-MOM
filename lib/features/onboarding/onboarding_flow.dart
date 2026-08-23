@@ -34,6 +34,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _procrastination = <String>{};
   String _frequency = _frequencyOptions.first;
   bool _submitting = false;
+  bool _isLoginMode = false;
   String? _error;
 
   static const _totalSteps = 6;
@@ -63,12 +64,22 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     });
     try {
       final auth = ref.read(authServiceProvider);
-      await auth.signUpWithEmail(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        name: _nameController.text.trim(),
-      );
-      await _saveOnboardingAnswers();
+      if (_isLoginMode) {
+        await auth.signInWithEmail(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        // A returning user's profile already has real answers saved —
+        // don't overwrite them with whatever's sitting in this blank
+        // onboarding pass.
+      } else {
+        await auth.signUpWithEmail(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          name: _nameController.text.trim(),
+        );
+        await _saveOnboardingAnswers();
+      }
       // The router's auth-state listener takes it from here and redirects
       // to /dashboard once the session is set.
     } catch (e) {
@@ -76,6 +87,19 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _startLogin() {
+    setState(() => _isLoginMode = true);
+    _goToStep(_totalSteps - 1);
+  }
+
+  void _backToSignUp() {
+    setState(() {
+      _isLoginMode = false;
+      _error = null;
+    });
+    _goToStep(0);
   }
 
   Future<void> _saveOnboardingAnswers() async {
@@ -97,7 +121,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     });
     try {
       await signIn();
-      await _saveOnboardingAnswers();
+      // Google/Apple sign-in doesn't distinguish new vs. returning users
+      // up front the way email does, but overwriting a returning user's
+      // real profile with blank onboarding answers is worse than a new
+      // user occasionally needing to re-set them — Supabase's own
+      // signInWithIdToken creates the account on first use either way.
+      if (!_isLoginMode) await _saveOnboardingAnswers();
     } catch (e) {
       setState(() => _error = _friendlyError(e));
     } finally {
@@ -131,24 +160,49 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-              child: Row(
-                children: [
-                  for (var i = 0; i < _totalSteps; i++)
-                    Expanded(
-                      child: Container(
-                        height: 4,
-                        margin: EdgeInsets.only(right: i == _totalSteps - 1 ? 0 : AppSpacing.xs),
-                        decoration: BoxDecoration(
-                          color: i <= _step ? AppColors.accent : theme.dividerTheme.color,
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            if (_isLoginMode)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.lg, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(LucideIcons.arrowLeft),
+                      onPressed: _backToSignUp,
+                      tooltip: 'Back',
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < _totalSteps; i++)
+                      Expanded(
+                        child: Container(
+                          height: 4,
+                          margin: EdgeInsets.only(right: i == _totalSteps - 1 ? 0 : AppSpacing.xs),
+                          decoration: BoxDecoration(
+                            color: i <= _step ? AppColors.accent : theme.dividerTheme.color,
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
+            if (!_isLoginMode)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: TextButton(
+                    onPressed: _startLogin,
+                    child: const Text('Already have an account? Log in'),
+                  ),
+                ),
+              ),
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -181,6 +235,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     onChanged: () => setState(() {}),
                     submitting: _submitting,
                     error: _error,
+                    isLoginMode: _isLoginMode,
                     onGoogleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithGoogle),
                     onAppleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithApple),
                     onPreviewTap: () {
@@ -195,7 +250,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
               padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
               child: PrimaryButton(
                 label: _step == _totalSteps - 1
-                    ? (_submitting ? 'Creating account...' : 'Create account')
+                    ? (_isLoginMode
+                        ? (_submitting ? 'Logging in...' : 'Log in')
+                        : (_submitting ? 'Creating account...' : 'Create account'))
                     : 'Continue',
                 onPressed: _canContinue ? _next : null,
               ),
@@ -415,6 +472,7 @@ class _AuthStep extends StatelessWidget {
     required this.onChanged,
     required this.submitting,
     required this.error,
+    required this.isLoginMode,
     required this.onGoogleTap,
     required this.onAppleTap,
     required this.onPreviewTap,
@@ -425,6 +483,7 @@ class _AuthStep extends StatelessWidget {
   final VoidCallback onChanged;
   final bool submitting;
   final String? error;
+  final bool isLoginMode;
   final VoidCallback onGoogleTap;
   final VoidCallback onAppleTap;
   final VoidCallback onPreviewTap;
@@ -443,8 +502,8 @@ class _AuthStep extends StatelessWidget {
     );
 
     return _StepScaffold(
-      title: 'Create your account',
-      subtitle: 'Save your Mom and pick up where you left off.',
+      title: isLoginMode ? 'Welcome back' : 'Create your account',
+      subtitle: isLoginMode ? 'Log in to pick up where you left off.' : 'Save your Mom and pick up where you left off.',
       child: ListView(
         children: [
           TextField(
@@ -460,7 +519,9 @@ class _AuthStep extends StatelessWidget {
             onChanged: (_) => onChanged(),
             obscureText: true,
             enabled: !submitting,
-            decoration: fieldDecoration.copyWith(hintText: 'Password (min. 8 characters)'),
+            decoration: fieldDecoration.copyWith(
+              hintText: isLoginMode ? 'Password' : 'Password (min. 8 characters)',
+            ),
           ),
           if (error != null) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -489,19 +550,21 @@ class _AuthStep extends StatelessWidget {
             label: 'Continue with Apple',
             onTap: submitting ? null : onAppleTap,
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'By continuing you agree to the Terms of Service and Privacy Policy.',
-            style: theme.textTheme.labelSmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Center(
-            child: TextButton(
-              onPressed: submitting ? null : onPreviewTap,
-              child: const Text('Just want to look around? Preview without an account'),
+          if (!isLoginMode) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'By continuing you agree to the Terms of Service and Privacy Policy.',
+              style: theme.textTheme.labelSmall,
+              textAlign: TextAlign.center,
             ),
-          ),
+            const SizedBox(height: AppSpacing.lg),
+            Center(
+              child: TextButton(
+                onPressed: submitting ? null : onPreviewTap,
+                child: const Text('Just want to look around? Preview without an account'),
+              ),
+            ),
+          ],
         ],
       ),
     );
