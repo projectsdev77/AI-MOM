@@ -11,7 +11,7 @@ purpose — no assumed background.
 
 - **The app itself:** Flutter (one codebase for iPhone and Android)
 - **The database and login system:** Supabase
-- **Mom's chat brain:** Claude (made by Anthropic)
+- **Mom's chat brain:** Google Gemini (free tier, no credit card needed)
 - **Subscriptions (paid plans):** RevenueCat, which handles Apple and
   Google's in-app purchase systems for us
 
@@ -23,7 +23,7 @@ Here's what each one does, in plain terms:
 | Service | What it's for | Costs money? |
 |---|---|---|
 | [Supabase](https://supabase.com) | Stores all the data (users, tasks, chats, spending, health) and handles login | Free to start |
-| [Anthropic](https://console.anthropic.com) | Powers Mom's chat replies | Pay-as-you-go, small amounts per message |
+| [Google AI Studio](https://aistudio.google.com) | Powers Mom's chat replies (Gemini API) | Free — no credit card required |
 | [RevenueCat](https://www.revenuecat.com) | Manages the Basic/Full subscription plans | Free to start |
 | Google Cloud Console | Lets people sign in with Google | Free |
 | Apple Developer Program | Lets people sign in with Apple, and is required to publish on the App Store either way | $99/year |
@@ -57,7 +57,7 @@ Go to each site below, sign up, and follow their basic "create a new
 project" steps. You don't need to configure anything advanced yet.
 
 1. **Supabase** — supabase.com → New Project
-2. **Anthropic** — console.anthropic.com → API Keys → Create Key
+2. **Google AI Studio** — aistudio.google.com → sign in with any Google account → Get API key (no credit card needed)
 3. **RevenueCat** — revenuecat.com → New Project
 4. **Google Cloud Console** — console.cloud.google.com → create an
    OAuth "Web" client (needed even though this is a mobile app — it's
@@ -74,7 +74,7 @@ all the tables the app needs.
 ### 4. Deploy the server-side code (edge functions)
 
 These run on Supabase's servers, not on the phone — this is where the
-Anthropic key lives, so it's never exposed to the app itself.
+Gemini key lives, so it's never exposed to the app itself.
 
 First, install the Supabase command-line tool. Note: `npm install -g
 supabase` does **not** work — Supabase deliberately blocks that
@@ -100,14 +100,14 @@ Then log in, connect to your project, and deploy:
 supabase login
 supabase link --project-ref your-project-ref   # find this in Supabase → Project Settings → General
 supabase functions deploy mom-chat delete-account revenuecat-webhook
-supabase secrets set ANTHROPIC_API_KEY=paste-your-key-here
+supabase secrets set GEMINI_API_KEY=paste-your-key-here
 
-# Note: setting ANTHROPIC_API_KEY is optional for testing. If it's not
+# Note: setting GEMINI_API_KEY is optional for testing. If it's not
 # set, `mom-chat` still runs everything for real (auth, saving
 # messages, the weekly limit) but replies with an obvious placeholder
-# instead of calling Claude — no Anthropic account or payment needed
+# instead of calling Gemini — no Google AI Studio key needed at all
 # to test the rest of the app. Set the real key whenever you want real
-# replies.
+# replies (it's free either way — see the services table above).
 supabase secrets set REVENUECAT_WEBHOOK_SECRET=make-up-a-long-random-value
 ```
 

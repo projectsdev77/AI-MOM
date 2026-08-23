@@ -1,9 +1,13 @@
-// Mom's chat brain. Runs server-side so the Anthropic API key never
+// Mom's chat brain. Runs server-side so the Gemini API key never
 // reaches the client, and so the Basic-tier weekly message cap is a
 // real limit (the client-side counter is just for instant UI feedback).
+//
+// Uses Google's Gemini API (free tier, no card required — see
+// README.md) rather than a paid provider, so this can run without
+// anyone having to add payment anywhere.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const ANTHROPIC_MODEL = 'claude-sonnet-5';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const BASIC_WEEKLY_MESSAGE_LIMIT = 15;
 
 interface ChatRequestBody {
@@ -72,54 +76,63 @@ Deno.serve(async (req) => {
     .order('created_at', { ascending: true })
     .limit(30);
 
-  const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
   let reply: string;
-  if (!anthropicApiKey) {
-    // Test mode: no Anthropic key configured yet (no account/payment
+  if (!geminiApiKey) {
+    // Test mode: no Gemini key configured yet (no account/payment
     // needed to reach this). Everything else — auth, weekly cap,
     // session/message persistence, context gathering — still runs for
     // real; only the actual AI call is skipped. Swap in a real key
-    // later (`supabase secrets set ANTHROPIC_API_KEY=...`) and this
+    // later (`supabase secrets set GEMINI_API_KEY=...`) and this
     // branch stops firing automatically.
     reply = buildMockReply(body.message, context);
   } else {
     const systemPrompt = buildSystemPrompt(profile, context);
-    const anthropicMessages = [
+    // Gemini has no "assistant" role — Mom's own past turns are "model".
+    const geminiContents = [
       ...(history ?? []).map((m) => ({
-        role: m.from_mom ? 'assistant' : 'user',
-        content: m.content,
+        role: m.from_mom ? 'model' : 'user',
+        parts: [{ text: m.content }],
       })),
-      { role: 'user', content: body.message },
+      { role: 'user', parts: [{ text: body.message }] },
     ];
 
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': geminiApiKey,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: geminiContents,
+          generationConfig: { maxOutputTokens: 1024 },
+        }),
       },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: anthropicMessages,
-      }),
-    });
+    );
 
-    if (!anthropicResponse.ok) {
-      const errorText = await anthropicResponse.text();
-      console.error('Anthropic API error', anthropicResponse.status, errorText);
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error('Gemini API error', geminiResponse.status, errorText);
       return new Response('Mom is not answering right now.', { status: 502 });
     }
 
-    const anthropicJson = await anthropicResponse.json();
-    reply = (anthropicJson.content ?? [])
-      .filter((block: { type: string }) => block.type === 'text')
-      .map((block: { text: string }) => block.text)
+    const geminiJson = await geminiResponse.json();
+    reply = (geminiJson.candidates?.[0]?.content?.parts ?? [])
+      // deno-lint-ignore no-explicit-any
+      .map((part: any) => part.text ?? '')
       .join('\n')
       .trim();
+
+    if (!reply) {
+      // No usable text — most often Gemini's own safety filter blocked
+      // the turn (finishReason "SAFETY"/"RECITATION" with no parts).
+      console.error('Gemini returned no text', JSON.stringify(geminiJson));
+      return new Response('Mom is not answering right now.', { status: 502 });
+    }
   }
 
   await userClient.from('chat_messages').insert([
@@ -183,17 +196,17 @@ async function gatherUserContext(
 }
 
 /**
- * Placeholder reply used only when ANTHROPIC_API_KEY isn't set (see the
+ * Placeholder reply used only when GEMINI_API_KEY isn't set (see the
  * test-mode branch above). References the real gathered context so it
  * still proves the context-gathering query worked, not just the round
  * trip — clearly labeled so nobody mistakes it for real Mom.
  */
 function buildMockReply(message: string, context: Record<string, unknown>): string {
   const tasks = (context.tasks as unknown[] | undefined) ?? [];
-  return `[TEST MODE — no Anthropic key set, this isn't a real reply] ` +
+  return `[TEST MODE — no Gemini key set, this isn't a real reply] ` +
     `I heard you say "${message.slice(0, 80)}". ` +
     `I can see ${tasks.length} task${tasks.length === 1 ? '' : 's'} on your list right now. ` +
-    `Add a real ANTHROPIC_API_KEY secret when you're ready for actual me.`;
+    `Add a real GEMINI_API_KEY secret when you're ready for actual me.`;
 }
 
 // deno-lint-ignore no-explicit-any
