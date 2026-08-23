@@ -101,6 +101,13 @@ supabase login
 supabase link --project-ref your-project-ref   # find this in Supabase → Project Settings → General
 supabase functions deploy mom-chat delete-account revenuecat-webhook
 supabase secrets set ANTHROPIC_API_KEY=paste-your-key-here
+
+# Note: setting ANTHROPIC_API_KEY is optional for testing. If it's not
+# set, `mom-chat` still runs everything for real (auth, saving
+# messages, the weekly limit) but replies with an obvious placeholder
+# instead of calling Claude — no Anthropic account or payment needed
+# to test the rest of the app. Set the real key whenever you want real
+# replies.
 supabase secrets set REVENUECAT_WEBHOOK_SECRET=make-up-a-long-random-value
 ```
 
