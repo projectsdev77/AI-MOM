@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -56,8 +57,13 @@ final profileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   return ref.watch(profileRepositoryProvider).fetch(userId);
 });
 
-bool get _revenueCatConfiguredForPlatform =>
-    Platform.isIOS ? Env.revenueCatIosKey.isNotEmpty : Env.revenueCatAndroidKey.isNotEmpty;
+// dart:io's Platform.isIOS/isAndroid throw on web instead of returning
+// false, so kIsWeb has to be checked first — RevenueCat doesn't apply
+// to a web build anyway (no App Store/Play Store to buy through there).
+bool get _revenueCatConfiguredForPlatform {
+  if (kIsWeb) return false;
+  return Platform.isIOS ? Env.revenueCatIosKey.isNotEmpty : Env.revenueCatAndroidKey.isNotEmpty;
+}
 
 /// RevenueCat's live entitlement stream — empty (never emits) until a
 /// real RevenueCat project is configured, so local dev without keys
