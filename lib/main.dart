@@ -6,6 +6,7 @@ import 'app.dart';
 import 'core/config/config_error_app.dart';
 import 'core/config/env.dart';
 import 'core/providers/currency_provider.dart';
+import 'core/providers/theme_provider.dart';
 import 'core/services/purchases_service.dart';
 
 void main() async {
@@ -19,10 +20,14 @@ void main() async {
   await Supabase.initialize(url: Env.supabaseUrl, publishableKey: Env.supabaseAnonKey);
   await PurchasesService.init();
   final savedCurrency = await loadSavedCurrency();
+  final savedThemeMode = await loadSavedThemeMode();
 
   runApp(
     ProviderScope(
-      overrides: [currencyProvider.overrideWith((ref) => savedCurrency)],
+      overrides: [
+        currencyProvider.overrideWith((ref) => savedCurrency),
+        themeModeProvider.overrideWith((ref) => savedThemeMode),
+      ],
       child: const AiMomApp(),
     ),
   );

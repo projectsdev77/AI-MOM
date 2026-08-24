@@ -10,6 +10,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/utils/password.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/primary_button.dart';
 
@@ -27,13 +28,6 @@ const _procrastinationOptions = ['Exercise', 'Chores', 'Work deadlines', 'Sleepi
 const _dailyRoutineOptions = ['Early riser', 'Standard 9-to-5 kind of day', 'Night owl', 'Pretty irregular'];
 const _livingSituationOptions = ['On my own', 'With a partner or spouse', 'With family', 'With roommates'];
 const _motivationStyleOptions = ['Gentle encouragement', 'Tough love, tell it straight', 'A mix of both'];
-/// At least 8 characters with a mix of letters and numbers — strong
-/// enough to matter without demanding symbols nobody remembers.
-bool isStrongPassword(String password) {
-  return password.length >= 8 &&
-      RegExp(r'[A-Za-z]').hasMatch(password) &&
-      RegExp(r'[0-9]').hasMatch(password);
-}
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _pageController = PageController();

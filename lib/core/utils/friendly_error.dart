@@ -24,6 +24,9 @@ String friendlyError(Object error) {
   if (message.contains('duplicate') || message.contains('unique constraint') || message.contains('already exists')) {
     return 'That already exists.';
   }
+  if (message.contains('basic_task_cap_reached')) {
+    return 'Basic Mom covers up to 5 active tasks — upgrade for unlimited.';
+  }
   if (message.contains('401') || message.contains('jwt') || message.contains('invalid session')) {
     return 'Your session expired — please log back in.';
   }

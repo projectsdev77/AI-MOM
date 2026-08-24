@@ -40,6 +40,17 @@ class AuthService {
     return _client.auth.resetPasswordForEmail(email);
   }
 
+  /// Supabase emails a confirmation link to the new address before the
+  /// change actually takes effect — `currentUser.email` stays the old
+  /// one until that's clicked.
+  Future<void> updateEmail(String newEmail) async {
+    await _client.auth.updateUser(UserAttributes(email: newEmail));
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   Future<void> signInWithGoogle() async {
     if (Env.googleWebClientId.isEmpty) {
       throw const AuthException(

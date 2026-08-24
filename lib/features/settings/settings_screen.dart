@@ -1,16 +1,25 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/check_in_frequency.dart';
-import '../../core/providers/currency_provider.dart';
 import '../../core/models/plan.dart';
+import '../../core/providers/app_state_provider.dart';
+import '../../core/providers/currency_provider.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/theme_provider.dart';
 import '../../core/services/purchases_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/utils/password.dart';
+import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/section_header.dart';
+import 'legal_screens.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -116,6 +125,151 @@ class SettingsScreen extends ConsumerWidget {
     await saveCurrency(selected);
   }
 
+  Future<void> _pickAppearance(BuildContext context, WidgetRef ref, ThemeMode current) async {
+    final selected = await showDialog<ThemeMode>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Appearance'),
+        children: [
+          for (final mode in ThemeMode.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, mode),
+              child: Row(
+                children: [
+                  Icon(
+                    mode == current ? LucideIcons.circleCheck : LucideIcons.circle,
+                    size: 18,
+                    color: mode == current ? AppColors.accent : null,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(themeModeLabel(mode)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || selected == current) return;
+    ref.read(themeModeProvider.notifier).state = selected;
+    await saveThemeMode(selected);
+  }
+
+  void _changeAvatar(BuildContext context, WidgetRef ref, MomAvatarStyle current) {
+    showMomAvatarPicker(
+      context,
+      current: current,
+      onSelected: (style) async {
+        ref.read(momAvatarStyleProvider.notifier).state = style;
+        final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+        if (userId == null) return;
+        try {
+          await ref.read(profileRepositoryProvider).updateMomAvatarStyle(userId: userId, style: style.name);
+          ref.invalidate(profileProvider);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _changeEmail(BuildContext context, WidgetRef ref, String currentEmail) async {
+    final controller = TextEditingController(text: currentEmail);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change email'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(hintText: 'New email'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              final email = controller.text.trim();
+              if (!email.contains('@')) return;
+              try {
+                await ref.read(authServiceProvider).updateEmail(email);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Check $email to confirm the change.')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Change password'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            obscureText: true,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(hintText: 'New password (min. 8 characters)'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: isStrongPassword(controller.text)
+                  ? () async {
+                      try {
+                        await ref.read(authServiceProvider).updatePassword(controller.text);
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Password updated.')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+                        }
+                      }
+                    }
+                  : null,
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _manageSubscription(BuildContext context) async {
+    final url = kIsWeb
+        ? null
+        : (Platform.isIOS
+            ? 'itms-apps://apps.apple.com/account/subscriptions'
+            : 'https://play.google.com/store/account/subscriptions');
+    if (url == null || !await launchUrl(Uri.parse(url))) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Manage your subscription from your App Store or Play Store account.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plan = ref.watch(planProvider);
@@ -124,6 +278,8 @@ class SettingsScreen extends ConsumerWidget {
     final profile = ref.watch(profileProvider).valueOrNull;
     final checkInFrequency = (profile?['check_in_frequency'] as String?) ?? checkInFrequencyOptions.first;
     final currency = ref.watch(currencyProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final avatarStyle = ref.watch(effectiveMomAvatarProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -137,8 +293,17 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           _Group(title: 'Account', rows: [
             _Row(icon: LucideIcons.user, label: 'Profile', value: user?.userMetadata?['name'] as String? ?? ''),
-            _Row(icon: LucideIcons.mail, label: 'Change email', value: user?.email ?? ''),
-            const _Row(icon: LucideIcons.lock, label: 'Change password'),
+            _Row(
+              icon: LucideIcons.mail,
+              label: 'Change email',
+              value: user?.email ?? '',
+              onTap: () => _changeEmail(context, ref, user?.email ?? ''),
+            ),
+            _Row(
+              icon: LucideIcons.lock,
+              label: 'Change password',
+              onTap: () => _changePassword(context, ref),
+            ),
             _Row(
               icon: LucideIcons.userX,
               label: 'Delete account',
@@ -159,10 +324,18 @@ class SettingsScreen extends ConsumerWidget {
               label: 'Restore purchases',
               onTap: PurchasesService.restorePurchases,
             ),
-            const _Row(icon: LucideIcons.externalLink, label: 'Manage subscription'),
+            _Row(
+              icon: LucideIcons.externalLink,
+              label: 'Manage subscription',
+              onTap: () => _manageSubscription(context),
+            ),
           ]),
           _Group(title: 'Mom', rows: [
-            const _Row(icon: LucideIcons.smile, label: 'Change Mom\'s avatar'),
+            _Row(
+              icon: LucideIcons.smile,
+              label: "Change Mom's avatar",
+              onTap: () => _changeAvatar(context, ref, avatarStyle),
+            ),
             _Row(
               icon: LucideIcons.bellRing,
               label: 'Check-in frequency',
@@ -181,13 +354,36 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => _pickCurrency(context, ref, currency),
             ),
             const _Row(icon: LucideIcons.ruler, label: 'Units', value: 'Imperial'),
-            _Row(icon: LucideIcons.moonStar, label: 'Appearance', value: 'System'),
+            _Row(
+              icon: LucideIcons.moonStar,
+              label: 'Appearance',
+              value: themeModeLabel(themeMode),
+              onTap: () => _pickAppearance(context, ref, themeMode),
+            ),
           ]),
-          const _Group(title: 'Support & legal', rows: [
-            _Row(icon: LucideIcons.circleHelp, label: 'Help & contact support'),
-            _Row(icon: LucideIcons.fileText, label: 'Terms of Service'),
-            _Row(icon: LucideIcons.shieldCheck, label: 'Privacy Policy'),
-            _Row(icon: LucideIcons.scrollText, label: 'Open-source licenses'),
+          _Group(title: 'Support & legal', rows: [
+            _Row(
+              icon: LucideIcons.circleHelp,
+              label: 'Help & contact support',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpScreen())),
+            ),
+            _Row(
+              icon: LucideIcons.fileText,
+              label: 'Terms of Service',
+              onTap: () =>
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsOfServiceScreen())),
+            ),
+            _Row(
+              icon: LucideIcons.shieldCheck,
+              label: 'Privacy Policy',
+              onTap: () =>
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+            ),
+            _Row(
+              icon: LucideIcons.scrollText,
+              label: 'Open-source licenses',
+              onTap: () => showLicensePage(context: context, applicationName: 'AI Mom'),
+            ),
           ]),
           _Group(title: 'Session', rows: [
             _Row(
