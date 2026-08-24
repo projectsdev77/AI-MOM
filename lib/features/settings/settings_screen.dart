@@ -281,6 +281,19 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _setPushNudgesEnabled(BuildContext context, WidgetRef ref, bool enabled) async {
+    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await ref.read(profileRepositoryProvider).updatePushNudgesEnabled(userId: userId, enabled: enabled);
+      ref.invalidate(profileProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plan = ref.watch(planProvider);
@@ -361,6 +374,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => _openNotificationSettings(context),
             ),
           ]),
+          _SwitchGroup(
+            title: 'Mom checking in',
+            icon: LucideIcons.messageCircleHeart,
+            label: "Nudge me about today's list",
+            value: (profile?['push_nudges_enabled'] as bool?) ?? true,
+            onChanged: (enabled) => _setPushNudgesEnabled(context, ref, enabled),
+          ),
           _Group(title: 'Preferences', rows: [
             _Row(
               icon: LucideIcons.badgeDollarSign,
@@ -449,6 +469,54 @@ class _Group extends StatelessWidget {
                     Divider(height: 1, color: theme.dividerTheme.color),
                 ],
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwitchGroup extends StatelessWidget {
+  const _SwitchGroup({
+    required this.title,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final String title;
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title: title),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            decoration: BoxDecoration(
+              color: theme.cardTheme.color,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+              border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              child: Row(
+                children: [
+                  Icon(icon, size: 20, color: theme.colorScheme.onSurface),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
+                  Switch(value: value, onChanged: onChanged),
+                ],
+              ),
             ),
           ),
         ],

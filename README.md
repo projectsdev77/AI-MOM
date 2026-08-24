@@ -27,6 +27,7 @@ Here's what each one does, in plain terms:
 | [RevenueCat](https://www.revenuecat.com) | Manages the Basic/Full subscription plans | Free to start |
 | Google Cloud Console | Lets people sign in with Google | Free |
 | Apple Developer Program | Lets people sign in with Apple, and is required to publish on the App Store either way | $99/year |
+| [Firebase](https://console.firebase.google.com) | Delivers Mom's proactive push notifications ("you still have things on your list") | Free |
 
 We are **not** using Stripe for payments — Apple and Google require
 in-app subscriptions to go through their own payment systems, not a
@@ -64,6 +65,10 @@ project" steps. You don't need to configure anything advanced yet.
    used to verify the sign-in token)
 5. **Apple Developer Program** — developer.apple.com (only needed when
    you're ready to test/publish on iPhone)
+6. **Firebase** — console.firebase.google.com → Create a project (only
+   needed for push notifications — see step 7 below; the app runs fine
+   without it, Mom just won't be able to nudge you when you're not in
+   the app)
 
 ### 3. Set up the database
 
@@ -101,7 +106,7 @@ Then log in, connect to your project, and deploy:
 ```
 supabase login
 supabase link --project-ref your-project-ref   # find this in Supabase → Project Settings → General
-supabase functions deploy mom-chat delete-account revenuecat-webhook
+supabase functions deploy mom-chat delete-account revenuecat-webhook send-nudges
 supabase secrets set GEMINI_API_KEY=paste-your-key-here
 
 # Note: setting GEMINI_API_KEY is optional for testing. If it's not
@@ -139,6 +144,54 @@ flutter run --dart-define-from-file=config/local.json
 If you skip step 5, the app still opens, but shows a plain "missing
 configuration" screen instead of crashing.
 
+### 7. Set up push notifications (Firebase) — optional, skip for now if you'd rather
+
+The app works completely fine without this step — it just means Mom
+can't nudge you with a notification when the app isn't open. Everything
+below is skippable and comes back to later.
+
+**Client side (lets the app receive pushes):**
+
+1. In your Firebase project, click **Add app** and register an
+   **Android** app with package name `com.aimom.ai_mom` (this project's
+   actual package name — must match exactly). Firebase will show you an
+   API key, App ID, and Sender ID — you don't need to download
+   `google-services.json`, this project reads those values from
+   `config/local.json` instead.
+2. When you're ready to test on iPhone, also register an **iOS** app
+   with bundle ID `com.aimom.aiMom`, and separately, in Xcode, enable
+   the "Push Notifications" capability on the Runner target (a native
+   Xcode setting, not something a config file can do for you).
+3. In Firebase → Project settings → General, copy these six values into
+   `config/local.json`: `FIREBASE_API_KEY`, `FIREBASE_APP_ID` (use the
+   Android app's, or iOS app's if you registered one),
+   `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_PROJECT_ID`,
+   `FIREBASE_AUTH_DOMAIN`, `FIREBASE_STORAGE_BUCKET`.
+
+**Server side (lets Mom actually send them, on a schedule):**
+
+4. In Firebase → Project settings → Service accounts, click **Generate
+   new private key**. This downloads a JSON file — paste its whole
+   contents (not just one field) as a secret:
+   ```
+   supabase secrets set FIREBASE_SERVICE_ACCOUNT='paste the whole downloaded JSON file here'
+   ```
+5. In your Supabase dashboard, go to Database → Extensions and enable
+   both `pg_cron` and `pg_net` (same place the streak-decay job's
+   `pg_cron` requirement lives).
+6. In the Supabase SQL editor, run these two commands once (find your
+   project URL and **service role key** — not the anon key — under
+   Project Settings → API):
+   ```sql
+   select vault.create_secret('https://YOUR-PROJECT.supabase.co', 'project_url');
+   select vault.create_secret('YOUR-SERVICE-ROLE-KEY', 'service_role_key');
+   ```
+
+That's it — migration `0009_nudge_scheduling.sql` already scheduled the
+job; it starts firing every 2 hours from here, nudging anyone with
+incomplete tasks who hasn't been nudged recently and hasn't turned it
+off in Settings.
+
 ## What's working right now vs. still to build
 
 **Working, connected to the real backend:**
@@ -159,6 +212,12 @@ configuration" screen instead of crashing.
 - Deleting your account, logging out
 - The Basic vs. Full plan gate, driven by RevenueCat (though there's
   nothing real to *purchase* yet — see below)
+- On-device reminders for any task/habit you give a time to — these
+  fire even if Firebase (below) is never set up, since the phone
+  handles them itself
+- Mom's proactive "you still have things on your list" push
+  notifications, once Firebase is set up (step 7) — off by default
+  until then, and always toggleable in Settings either way
 
 **Apple Sign-In: built, but not usable yet.** The code path exists
 (`AuthService.signInWithApple`) and fails with a clear in-app message
@@ -168,7 +227,6 @@ that can be set up without that account. Use email or Google sign-in
 until that's set up.
 
 **Not built yet:**
-- Push notifications / Mom's nagging messages
 - Real subscription purchases — needs App Store Connect / Google Play
   Console products configured, which needs paid developer accounts
 - Measurement-unit settings (currency works; a metric/imperial toggle
