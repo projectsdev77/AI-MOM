@@ -27,10 +27,14 @@ Deno.serve(async (req) => {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: { user }, error: userError } = await userClient.auth.getUser();
+  // These two don't depend on each other — run them together instead of
+  // waiting for the auth round-trip before even starting to parse the body.
+  const [{ data: { user }, error: userError }, body] = await Promise.all([
+    userClient.auth.getUser(),
+    req.json() as Promise<ChatRequestBody>,
+  ]);
   if (userError || !user) return new Response('Invalid session', { status: 401, headers: corsHeaders });
 
-  const body: ChatRequestBody = await req.json();
   if (!body.message || !body.message.trim()) {
     return new Response('message is required', { status: 400, headers: corsHeaders });
   }
@@ -71,13 +75,17 @@ Deno.serve(async (req) => {
     sessionId = session.id;
   }
 
-  const context = await gatherUserContext(userClient, user.id, profile?.plan ?? 'basic');
-  const { data: history } = await userClient
-    .from('chat_messages')
-    .select('from_mom, content')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true })
-    .limit(30);
+  // Independent of each other — fetch in parallel rather than one after
+  // the other.
+  const [context, { data: history }] = await Promise.all([
+    gatherUserContext(userClient, user.id, profile?.plan ?? 'basic'),
+    userClient
+      .from('chat_messages')
+      .select('from_mom, content')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true })
+      .limit(30),
+  ]);
 
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
@@ -138,14 +146,18 @@ Deno.serve(async (req) => {
     }
   }
 
-  await userClient.from('chat_messages').insert([
-    { session_id: sessionId, user_id: user.id, from_mom: false, content: body.message },
-    { session_id: sessionId, user_id: user.id, from_mom: true, content: reply },
+  // Neither write depends on the other, and the response doesn't wait on
+  // anything past this point either way.
+  await Promise.all([
+    userClient.from('chat_messages').insert([
+      { session_id: sessionId, user_id: user.id, from_mom: false, content: body.message },
+      { session_id: sessionId, user_id: user.id, from_mom: true, content: reply },
+    ]),
+    userClient
+      .from('chat_sessions')
+      .update({ last_message_at: new Date().toISOString() })
+      .eq('id', sessionId),
   ]);
-  await userClient
-    .from('chat_sessions')
-    .update({ last_message_at: new Date().toISOString() })
-    .eq('id', sessionId);
 
   return new Response(JSON.stringify({ sessionId, reply, remainingThisWeek }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -170,24 +182,28 @@ async function gatherUserContext(
   if (plan === 'full') {
     const monthStart = new Date();
     monthStart.setDate(1);
-    const { data: expenses } = await client
-      .from('expenses')
-      .select('amount_cents, category')
-      .eq('user_id', userId)
-      .gte('spent_at', monthStart.toISOString().slice(0, 10));
-    const { data: budgets } = await client.from('budgets').select('category, amount_cents').eq('user_id', userId);
-    const { data: healthGoals } = await client
-      .from('health_goals')
-      .select('water_target, sleep_target_hours, workout_target_minutes')
-      .eq('user_id', userId)
-      .maybeSingle();
     const today = new Date().toISOString().slice(0, 10);
-    const { data: healthToday } = await client
-      .from('health_logs')
-      .select('water_count, sleep_hours, workout_minutes')
-      .eq('user_id', userId)
-      .eq('log_date', today)
-      .maybeSingle();
+
+    // None of these four depend on each other — fetch them together.
+    const [{ data: expenses }, { data: budgets }, { data: healthGoals }, { data: healthToday }] = await Promise.all([
+      client
+        .from('expenses')
+        .select('amount_cents, category')
+        .eq('user_id', userId)
+        .gte('spent_at', monthStart.toISOString().slice(0, 10)),
+      client.from('budgets').select('category, amount_cents').eq('user_id', userId),
+      client
+        .from('health_goals')
+        .select('water_target, sleep_target_hours, workout_target_minutes')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      client
+        .from('health_logs')
+        .select('water_count, sleep_hours, workout_minutes')
+        .eq('user_id', userId)
+        .eq('log_date', today)
+        .maybeSingle(),
+    ]);
 
     context.expensesThisMonth = expenses ?? [];
     context.budgets = budgets ?? [];

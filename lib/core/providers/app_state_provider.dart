@@ -35,9 +35,13 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     state = await ref.read(tasksRepositoryProvider).fetchTasks(userId);
   }
 
-  Future<void> toggleDone(String id) async {
+  /// Returns the task's fresh state (with the server-computed
+  /// `streak_count`) once the write lands, or `null` if it failed — the
+  /// caller uses this to notice a streak that just went up and show a
+  /// celebration. Reverts the optimistic flip on failure.
+  Future<TaskItem?> toggleDone(String id) async {
     final userId = ref.read(authServiceProvider).currentUser?.id;
-    if (userId == null) return;
+    if (userId == null) return null;
     final task = state.firstWhere((t) => t.id == id);
     final newDone = !task.done;
 
@@ -51,17 +55,35 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     try {
       await ref.read(tasksRepositoryProvider).setDone(taskId: id, userId: userId, done: newDone);
       await refresh();
+      for (final t in state) {
+        if (t.id == id) return t;
+      }
+      return null;
     } catch (_) {
       state = [
         for (final t in state)
           if (t.id == id) t.copyWith(done: !newDone) else t,
       ];
+      return null;
     }
   }
 
+  Future<void> archiveTask(String id) async {
+    final previous = state;
+    state = [for (final t in state) if (t.id != id) t];
+    try {
+      await ref.read(tasksRepositoryProvider).archiveTask(id);
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
+  }
+
+  /// [category] is the raw value to store — either a known
+  /// [TaskCategory]'s `.name` or a free-typed custom category.
   Future<void> addTask({
     required String title,
-    required TaskCategory category,
+    required String category,
     RecurrenceType recurrence = RecurrenceType.none,
   }) async {
     final userId = ref.read(authServiceProvider).currentUser?.id;

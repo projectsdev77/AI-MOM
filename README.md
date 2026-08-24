@@ -67,9 +67,11 @@ project" steps. You don't need to configure anything advanced yet.
 
 ### 3. Set up the database
 
-In your Supabase project, open the SQL editor and run the two files in
-`supabase/migrations/` in order (0001 first, then 0002). This creates
-all the tables the app needs.
+In your Supabase project, open the SQL editor and run the files in
+`supabase/migrations/` in order (0001, then 0002, then 0003, and so
+on — always lowest number first). This creates all the tables the app
+needs. If you already ran 0001 and 0002 before, you only need to run
+the new ones you haven't run yet.
 
 ### 4. Deploy the server-side code (edge functions)
 

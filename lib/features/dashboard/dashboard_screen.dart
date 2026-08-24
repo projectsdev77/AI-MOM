@@ -17,6 +17,7 @@ import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/section_header.dart';
 import '../../core/widgets/streak_check.dart';
 import '../tasks/add_task_sheet.dart';
+import '../tasks/streak_celebration.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -321,7 +322,18 @@ class _DashboardTaskRow extends ConsumerWidget {
           StreakCheck(
             done: task.done,
             size: 24,
-            onTap: () => ref.read(tasksProvider.notifier).toggleDone(task.id),
+            onTap: () async {
+              final wasDone = task.done;
+              final updated = await ref.read(tasksProvider.notifier).toggleDone(task.id);
+              if (updated != null &&
+                  !wasDone &&
+                  updated.done &&
+                  updated.isHabit &&
+                  updated.streakCount > 1 &&
+                  context.mounted) {
+                showStreakCelebration(context, taskTitle: updated.title, streakCount: updated.streakCount);
+              }
+            },
           ),
         ],
       ),

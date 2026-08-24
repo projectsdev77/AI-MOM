@@ -29,14 +29,23 @@ class _AddTaskSheet extends ConsumerStatefulWidget {
 
 class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
   final _titleController = TextEditingController();
+  final _customCategoryController = TextEditingController();
   TaskCategory _category = TaskCategory.personal;
+  bool _customSelected = false;
   RecurrenceType _recurrence = RecurrenceType.none;
   bool _saving = false;
 
   @override
   void dispose() {
     _titleController.dispose();
+    _customCategoryController.dispose();
     super.dispose();
+  }
+
+  bool get _canSave {
+    if (_titleController.text.trim().isEmpty) return false;
+    if (_customSelected && _customCategoryController.text.trim().isEmpty) return false;
+    return true;
   }
 
   Future<void> _save() async {
@@ -46,7 +55,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
     try {
       await ref.read(tasksProvider.notifier).addTask(
             title: title,
-            category: _category,
+            category: _customSelected ? _customCategoryController.text.trim() : _category.name,
             recurrence: _recurrence,
           );
       if (mounted) Navigator.of(context).pop();
@@ -99,15 +108,42 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
             const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: [
-                for (final c in TaskCategory.values)
+                for (final c in TaskCategory.values.where((c) => c != TaskCategory.other))
                   AppPillChip(
                     label: c.label,
-                    selected: _category == c,
-                    onTap: () => setState(() => _category = c),
+                    selected: !_customSelected && _category == c,
+                    onTap: () => setState(() {
+                      _customSelected = false;
+                      _category = c;
+                    }),
                   ),
+                AppPillChip(
+                  label: 'Custom',
+                  selected: _customSelected,
+                  onTap: () => setState(() => _customSelected = true),
+                ),
               ],
             ),
+            if (_customSelected) ...[
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _customCategoryController,
+                onChanged: (_) => setState(() {}),
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'Category name',
+                  filled: true,
+                  fillColor: theme.cardTheme.color,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+                    borderSide: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             Text('Repeat', style: theme.textTheme.bodySmall),
             const SizedBox(height: AppSpacing.sm),
@@ -130,7 +166,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
             const SizedBox(height: AppSpacing.xl),
             PrimaryButton(
               label: _saving ? 'Saving...' : 'Add task',
-              onPressed: (_titleController.text.trim().isEmpty || _saving) ? null : _save,
+              onPressed: (_canSave && !_saving) ? _save : null,
             ),
           ],
         ),

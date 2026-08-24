@@ -18,6 +18,23 @@ class TasksRepository {
         '${now.day.toString().padLeft(2, '0')}';
   }
 
+  /// The DB column is free text (a built-in category's `.name`, or
+  /// whatever custom text someone typed) — [TaskCategory.values.byName]
+  /// would throw on a custom value, so match it manually instead.
+  TaskCategory _parseCategoryKind(String raw) {
+    for (final c in TaskCategory.values) {
+      if (c.name == raw) return c;
+    }
+    return TaskCategory.other;
+  }
+
+  String _categoryLabel(String raw) {
+    for (final c in TaskCategory.values) {
+      if (c.name == raw) return c.label;
+    }
+    return raw;
+  }
+
   Future<List<TaskItem>> fetchTasks(String userId) async {
     final today = _today();
 
@@ -41,7 +58,8 @@ class TasksRepository {
         TaskItem(
           id: row['id'] as String,
           title: row['title'] as String,
-          category: TaskCategory.values.byName(row['category'] as String),
+          category: _parseCategoryKind(row['category'] as String),
+          categoryLabel: _categoryLabel(row['category'] as String),
           recurrence: RecurrenceType.values.byName(row['recurrence'] as String),
           streakCount: row['streak_count'] as int,
           streakFreezesAvailable: row['streak_freezes_available'] as int,
@@ -51,17 +69,19 @@ class TasksRepository {
     ];
   }
 
+  /// [category] is the raw value to store — either a built-in
+  /// [TaskCategory]'s `.name`, or free-typed custom text.
   Future<void> addTask({
     required String userId,
     required String title,
-    required TaskCategory category,
+    required String category,
     RecurrenceType recurrence = RecurrenceType.none,
     String? dueTime,
   }) {
     return _client.from('tasks').insert({
       'user_id': userId,
       'title': title,
-      'category': category.name,
+      'category': category,
       'recurrence': recurrence.name,
       if (dueTime != null) 'due_time': dueTime,
     });

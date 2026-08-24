@@ -3,7 +3,12 @@ import 'package:flutter/widgets.dart';
 
 import '../widgets/category_chip.dart';
 
-enum TaskCategory { chores, work, health, money, personal }
+/// [other] is the fallback icon/tint "kind" for any custom category text
+/// that doesn't match one of the built-in names — see
+/// [TasksRepository._parseCategoryKind] in tasks_repository.dart. It's
+/// deliberately not offered as a pickable chip in the add-task sheet;
+/// picking "Custom" there and typing a label is what produces it.
+enum TaskCategory { chores, work, health, money, personal, education, other }
 
 extension TaskCategoryX on TaskCategory {
   String get label => switch (this) {
@@ -12,6 +17,8 @@ extension TaskCategoryX on TaskCategory {
         TaskCategory.health => 'Health',
         TaskCategory.money => 'Money',
         TaskCategory.personal => 'Personal',
+        TaskCategory.education => 'Education',
+        TaskCategory.other => 'Other',
       };
 
   IconData get icon => switch (this) {
@@ -20,6 +27,8 @@ extension TaskCategoryX on TaskCategory {
         TaskCategory.health => LucideIcons.heartPulse,
         TaskCategory.money => LucideIcons.wallet,
         TaskCategory.personal => LucideIcons.user,
+        TaskCategory.education => LucideIcons.graduationCap,
+        TaskCategory.other => LucideIcons.tag,
       };
 
   ChipTint get tint => switch (this) {
@@ -28,6 +37,8 @@ extension TaskCategoryX on TaskCategory {
         TaskCategory.health => ChipTint.blush,
         TaskCategory.money => ChipTint.peach,
         TaskCategory.personal => ChipTint.sage,
+        TaskCategory.education => ChipTint.blush,
+        TaskCategory.other => ChipTint.tan,
       };
 }
 
@@ -41,6 +52,7 @@ class TaskItem {
     required this.id,
     required this.title,
     required this.category,
+    required this.categoryLabel,
     this.recurrence = RecurrenceType.none,
     this.streakCount = 0,
     this.streakFreezesAvailable = 0,
@@ -50,7 +62,13 @@ class TaskItem {
 
   final String id;
   final String title;
+
+  /// The icon/tint "kind" — [TaskCategory.other] for any custom category.
   final TaskCategory category;
+
+  /// The text to actually show — a built-in category's pretty label, or
+  /// the user's own custom text verbatim.
+  final String categoryLabel;
   final RecurrenceType recurrence;
   final int streakCount;
   final int streakFreezesAvailable;
@@ -63,6 +81,7 @@ class TaskItem {
         id: id,
         title: title,
         category: category,
+        categoryLabel: categoryLabel,
         recurrence: recurrence,
         streakCount: streakCount,
         streakFreezesAvailable: streakFreezesAvailable,
