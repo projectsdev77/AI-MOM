@@ -15,6 +15,11 @@ class Env {
   static const googleWebClientId =
       String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
 
+  // Defaults to a real address so Help & contact support always has
+  // somewhere to send mail, even before config/local.json sets its own.
+  static const supportEmail =
+      String.fromEnvironment('SUPPORT_EMAIL', defaultValue: 'projects.dev@gmail.com');
+
   // Firebase (push notifications) — values come from Firebase Console
   // -> Project settings -> Your apps -> the relevant app's config, not
   // from running the FlutterFire CLI. Same "paste values into
