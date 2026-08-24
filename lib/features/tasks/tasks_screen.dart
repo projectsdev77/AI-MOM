@@ -169,7 +169,7 @@ class _TaskRow extends ConsumerWidget {
                   Text(
                     [
                       task.categoryLabel,
-                      if (task.dueTime != null) task.dueTime!,
+                      if (task.dueTimeLabel != null) task.dueTimeLabel!,
                       if (task.isHabit) '${task.streakCount} day streak',
                     ].join('  •  '),
                     style: theme.textTheme.labelSmall,

@@ -77,6 +77,22 @@ class TaskItem {
 
   bool get isHabit => recurrence != RecurrenceType.none;
 
+  /// `dueTime` as stored is `HH:mm:ss` (Postgres `time`) — this turns
+  /// it into "8:00 AM" for display, without pulling in a Flutter/intl
+  /// dependency into this plain model file.
+  String? get dueTimeLabel {
+    final raw = dueTime;
+    if (raw == null) return null;
+    final parts = raw.split(':');
+    if (parts.length < 2) return raw;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return raw;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
   TaskItem copyWith({bool? done}) => TaskItem(
         id: id,
         title: title,

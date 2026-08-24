@@ -40,4 +40,12 @@ class ProfileRepository {
   Future<void> updateMomAvatarStyle({required String userId, required String style}) {
     return _client.from('profiles').update({'mom_avatar_style': style}).eq('id', userId);
   }
+
+  Future<void> updateFcmToken({required String userId, required String token}) {
+    return _client.from('profiles').update({'fcm_token': token}).eq('id', userId);
+  }
+
+  Future<void> updatePushNudgesEnabled({required String userId, required bool enabled}) {
+    return _client.from('profiles').update({'push_nudges_enabled': enabled}).eq('id', userId);
+  }
 }

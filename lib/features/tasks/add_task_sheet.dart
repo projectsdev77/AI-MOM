@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/task_item.dart';
 import '../../core/providers/app_state_provider.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/friendly_error.dart';
@@ -34,6 +35,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
   TaskCategory _category = TaskCategory.personal;
   bool _customSelected = false;
   RecurrenceType _recurrence = RecurrenceType.none;
+  TimeOfDay? _dueTime;
   bool _saving = false;
 
   @override
@@ -49,16 +51,38 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
     return true;
   }
 
+  String? get _dueTimeString {
+    final t = _dueTime;
+    if (t == null) return null;
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+  }
+
+  Future<void> _pickDueTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _dueTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) setState(() => _dueTime = picked);
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
     setState(() => _saving = true);
     try {
-      await ref.read(tasksProvider.notifier).addTask(
+      final taskId = await ref.read(tasksProvider.notifier).addTask(
             title: title,
             category: _customSelected ? _customCategoryController.text.trim() : _category.name,
             recurrence: _recurrence,
+            dueTime: _dueTimeString,
           );
+      if (taskId != null && _dueTimeString != null) {
+        await NotificationService.scheduleTaskReminder(
+          taskId: taskId,
+          title: title,
+          dueTime: _dueTimeString!,
+        );
+      }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -161,6 +185,25 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
                     },
                     selected: _recurrence == r,
                     onTap: () => setState(() => _recurrence = r),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Reminder', style: theme.textTheme.bodySmall),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              children: [
+                AppPillChip(
+                  label: _dueTime == null ? 'No reminder' : 'Remind me at ${_dueTime!.format(context)}',
+                  selected: _dueTime != null,
+                  onTap: _pickDueTime,
+                ),
+                if (_dueTime != null)
+                  AppPillChip(
+                    label: 'Clear',
+                    selected: false,
+                    onTap: () => setState(() => _dueTime = null),
                   ),
               ],
             ),

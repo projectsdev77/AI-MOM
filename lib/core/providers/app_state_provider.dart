@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/task_item.dart';
+import '../services/notification_service.dart';
 import '../theme/mom_mood.dart';
 import '../widgets/mom_avatar.dart';
 import 'service_providers.dart';
@@ -33,6 +34,19 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     final userId = ref.read(authServiceProvider).currentUser?.id;
     if (userId == null) return;
     state = await ref.read(tasksRepositoryProvider).fetchTasks(userId);
+    // Re-registers each task's reminder every refresh — cheap (just
+    // replaces a pending OS alarm) and keeps reminders correct after
+    // a reinstall or a fresh login on a new device, where nothing
+    // would otherwise be scheduled on-device yet.
+    for (final task in state) {
+      if (task.dueTime != null) {
+        await NotificationService.scheduleTaskReminder(
+          taskId: task.id,
+          title: task.title,
+          dueTime: task.dueTime!,
+        );
+      }
+    }
   }
 
   /// Returns the task's fresh state (with the server-computed
@@ -73,6 +87,7 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     state = [for (final t in state) if (t.id != id) t];
     try {
       await ref.read(tasksRepositoryProvider).archiveTask(id);
+      await NotificationService.cancelTaskReminder(id);
     } catch (_) {
       state = previous;
       rethrow;
@@ -81,20 +96,25 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
 
   /// [category] is the raw value to store — either a known
   /// [TaskCategory]'s `.name` or a free-typed custom category.
-  Future<void> addTask({
+  /// Returns the new task's id (e.g. to schedule a reminder against),
+  /// or null if there's no signed-in user.
+  Future<String?> addTask({
     required String title,
     required String category,
     RecurrenceType recurrence = RecurrenceType.none,
+    String? dueTime,
   }) async {
     final userId = ref.read(authServiceProvider).currentUser?.id;
-    if (userId == null) return;
-    await ref.read(tasksRepositoryProvider).addTask(
+    if (userId == null) return null;
+    final id = await ref.read(tasksRepositoryProvider).addTask(
           userId: userId,
           title: title,
           category: category,
           recurrence: recurrence,
+          dueTime: dueTime,
         );
     await refresh();
+    return id;
   }
 }
 
