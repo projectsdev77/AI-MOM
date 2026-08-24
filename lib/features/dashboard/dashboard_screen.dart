@@ -8,6 +8,7 @@ import '../../core/models/plan.dart';
 import '../../core/models/task_item.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/calendar_providers.dart';
+import '../../core/providers/currency_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
 import '../../core/theme/app_colors.dart';
@@ -105,7 +106,7 @@ class DashboardScreen extends ConsumerWidget {
                     icon: LucideIcons.wallet,
                     tint: ChipTint.tan,
                     label: 'Spent this month',
-                    value: '\$${(spentCents / 100).toStringAsFixed(0)}',
+                    value: formatMoney(spentCents, ref.watch(currencyProvider)),
                     onTap: goToTrackOrUpgrade,
                   ),
                 ),

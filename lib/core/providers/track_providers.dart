@@ -18,6 +18,18 @@ final overallBudgetCentsProvider = FutureProvider.autoDispose<int?>((ref) async 
   return ref.watch(financeRepositoryProvider).fetchOverallBudgetCents(userId);
 });
 
+final categoryBudgetsProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final userId = _currentUserId(ref);
+  if (userId == null) return const {};
+  return ref.watch(financeRepositoryProvider).fetchCategoryBudgets(userId);
+});
+
+final healthActivitiesProvider = FutureProvider.autoDispose<List<HealthActivity>>((ref) async {
+  final userId = _currentUserId(ref);
+  if (userId == null) return const [];
+  return ref.watch(healthRepositoryProvider).fetchActivities(userId);
+});
+
 /// Null means "no goals set yet" — the Health card prompts for them the
 /// first time this loads, per the planning decision (asked on first
 /// visit to the tab, not at onboarding).

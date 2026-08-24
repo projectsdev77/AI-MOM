@@ -9,6 +9,8 @@ import 'features/onboarding/onboarding_flow.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/tasks/tasks_screen.dart';
+import 'features/track/finance_detail_screen.dart';
+import 'features/track/health_detail_screen.dart';
 import 'features/track/track_screen.dart';
 import 'features/upgrade/upgrade_screen.dart';
 
@@ -32,6 +34,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/upgrade',
       builder: (context, state) => const UpgradeScreen(),
+    ),
+    GoRoute(
+      path: '/track/finance',
+      builder: (context, state) => const FinanceDetailScreen(),
+    ),
+    GoRoute(
+      path: '/track/health',
+      builder: (context, state) => const HealthDetailScreen(),
     ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),

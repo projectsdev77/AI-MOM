@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/constants/check_in_frequency.dart';
+import '../../core/providers/currency_provider.dart';
 import '../../core/models/plan.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/purchases_service.dart';
@@ -86,6 +87,35 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _pickCurrency(BuildContext context, WidgetRef ref, String current) async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Currency'),
+        children: [
+          for (final code in currencySymbols.keys)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, code),
+              child: Row(
+                children: [
+                  Icon(
+                    code == current ? LucideIcons.circleCheck : LucideIcons.circle,
+                    size: 18,
+                    color: code == current ? AppColors.accent : null,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text('$code (${currencySymbols[code]})'),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || selected == current) return;
+    ref.read(currencyProvider.notifier).state = selected;
+    await saveCurrency(selected);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plan = ref.watch(planProvider);
@@ -93,6 +123,7 @@ class SettingsScreen extends ConsumerWidget {
     final authService = ref.read(authServiceProvider);
     final profile = ref.watch(profileProvider).valueOrNull;
     final checkInFrequency = (profile?['check_in_frequency'] as String?) ?? checkInFrequencyOptions.first;
+    final currency = ref.watch(currencyProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -142,9 +173,14 @@ class SettingsScreen extends ConsumerWidget {
           const _Group(title: 'Notifications', rows: [
             _Row(icon: LucideIcons.bell, label: 'System notification settings'),
           ]),
-          const _Group(title: 'Preferences', rows: [
-            _Row(icon: LucideIcons.badgeDollarSign, label: 'Currency', value: 'USD'),
-            _Row(icon: LucideIcons.ruler, label: 'Units', value: 'Imperial'),
+          _Group(title: 'Preferences', rows: [
+            _Row(
+              icon: LucideIcons.badgeDollarSign,
+              label: 'Currency',
+              value: currency,
+              onTap: () => _pickCurrency(context, ref, currency),
+            ),
+            const _Row(icon: LucideIcons.ruler, label: 'Units', value: 'Imperial'),
             _Row(icon: LucideIcons.moonStar, label: 'Appearance', value: 'System'),
           ]),
           const _Group(title: 'Support & legal', rows: [

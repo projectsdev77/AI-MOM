@@ -18,8 +18,8 @@ class ExpenseRow {
 
 /// Manual entry only (no bank linking) — amounts are stored as integer
 /// cents to avoid float rounding issues. The overall monthly budget is
-/// the `budgets` row with `category = 'overall'`; per-category budgets
-/// are supported by the schema but not surfaced in the UI yet.
+/// the `budgets` row with `category = 'overall'`; every other row is a
+/// per-category budget.
 class FinanceRepository {
   FinanceRepository(this._client);
 
@@ -80,5 +80,30 @@ class FinanceRepository {
       {'user_id': userId, 'category': overallBudgetCategory, 'amount_cents': amountCents},
       onConflict: 'user_id,category',
     );
+  }
+
+  /// All per-category budgets (excludes the overall one).
+  Future<Map<String, int>> fetchCategoryBudgets(String userId) async {
+    final rows = await _client
+        .from('budgets')
+        .select('category, amount_cents')
+        .eq('user_id', userId)
+        .neq('category', overallBudgetCategory);
+    return {for (final row in rows) row['category'] as String: row['amount_cents'] as int};
+  }
+
+  Future<void> setCategoryBudget({
+    required String userId,
+    required String category,
+    required int amountCents,
+  }) {
+    return _client.from('budgets').upsert(
+      {'user_id': userId, 'category': category, 'amount_cents': amountCents},
+      onConflict: 'user_id,category',
+    );
+  }
+
+  Future<void> deleteCategoryBudget({required String userId, required String category}) {
+    return _client.from('budgets').delete().eq('user_id', userId).eq('category', category);
   }
 }

@@ -194,3 +194,53 @@ Future<void> showSetBudgetDialog(BuildContext context, WidgetRef ref, {int? curr
     ),
   );
 }
+
+Future<void> showSetCategoryBudgetDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  required String category,
+  int? currentCents,
+}) {
+  final controller = TextEditingController(
+    text: currentCents != null ? (currentCents / 100).toStringAsFixed(0) : '',
+  );
+  return showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('$category budget'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(hintText: 'e.g. 200'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () async {
+            final amount = double.tryParse(controller.text);
+            if (amount == null || amount <= 0) return;
+            final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+            if (userId == null) return;
+            try {
+              await ref.read(financeRepositoryProvider).setCategoryBudget(
+                    userId: userId,
+                    category: category,
+                    amountCents: (amount * 100).round(),
+                  );
+              ref.invalidate(categoryBudgetsProvider);
+              if (context.mounted) Navigator.pop(context);
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(friendlyError(e))),
+                );
+              }
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+}

@@ -75,51 +75,146 @@ Future<void> showHealthGoalsDialog(
   );
 }
 
-Future<void> showLogHealthSheet(BuildContext context) {
+/// A single-field "log this one thing" dialog — used for sleep, and for
+/// movement minutes, from the "+" on their respective Health cards.
+Future<void> showQuickLogDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  required String title,
+  required String hint,
+  required bool isDecimal,
+  required Future<void> Function(num value) onSave,
+}) {
+  final controller = TextEditingController();
+  return showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
+        decoration: InputDecoration(hintText: hint),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () async {
+            final value = num.tryParse(controller.text);
+            if (value == null || value < 0) return;
+            try {
+              await onSave(value);
+              if (context.mounted) Navigator.pop(context);
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+              }
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> showLogSleepSheet(BuildContext context, WidgetRef ref) {
+  return showQuickLogDialog(
+    context,
+    ref,
+    title: 'Log sleep',
+    hint: 'Hours of sleep last night',
+    isDecimal: true,
+    onSave: (value) async {
+      final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+      if (userId == null) return;
+      await ref.read(healthRepositoryProvider).logToday(userId: userId, sleepHours: value.toDouble());
+      ref.invalidate(healthTodayProvider);
+    },
+  );
+}
+
+Future<void> showLogWorkoutSheet(BuildContext context, WidgetRef ref) {
+  return showQuickLogDialog(
+    context,
+    ref,
+    title: 'Log movement',
+    hint: 'Minutes today',
+    isDecimal: false,
+    onSave: (value) async {
+      final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+      if (userId == null) return;
+      await ref.read(healthRepositoryProvider).logToday(userId: userId, workoutMinutes: value.toInt());
+      ref.invalidate(healthTodayProvider);
+    },
+  );
+}
+
+Future<void> showLogActivityMinutesSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required String activityId,
+  required String title,
+}) {
+  return showQuickLogDialog(
+    context,
+    ref,
+    title: 'Log $title',
+    hint: 'Minutes today',
+    isDecimal: false,
+    onSave: (value) async {
+      final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+      if (userId == null) return;
+      await ref
+          .read(healthRepositoryProvider)
+          .logActivityMinutes(activityId: activityId, userId: userId, minutes: value.toInt());
+      ref.invalidate(healthActivitiesProvider);
+    },
+  );
+}
+
+Future<void> showAddHealthActivitySheet(BuildContext context) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const _LogHealthSheet(),
+    builder: (context) => const _AddHealthActivitySheet(),
   );
 }
 
-class _LogHealthSheet extends ConsumerStatefulWidget {
-  const _LogHealthSheet();
+class _AddHealthActivitySheet extends ConsumerStatefulWidget {
+  const _AddHealthActivitySheet();
 
   @override
-  ConsumerState<_LogHealthSheet> createState() => _LogHealthSheetState();
+  ConsumerState<_AddHealthActivitySheet> createState() => _AddHealthActivitySheetState();
 }
 
-class _LogHealthSheetState extends ConsumerState<_LogHealthSheet> {
-  final _sleepController = TextEditingController();
-  final _workoutController = TextEditingController();
+class _AddHealthActivitySheetState extends ConsumerState<_AddHealthActivitySheet> {
+  final _titleController = TextEditingController();
+  final _targetController = TextEditingController(text: '30');
   bool _saving = false;
 
   @override
   void dispose() {
-    _sleepController.dispose();
-    _workoutController.dispose();
+    _titleController.dispose();
+    _targetController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final title = _titleController.text.trim();
+    final target = int.tryParse(_targetController.text) ?? 30;
+    if (title.isEmpty) return;
     final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
     if (userId == null) return;
     setState(() => _saving = true);
     try {
-      await ref.read(healthRepositoryProvider).logToday(
-            userId: userId,
-            sleepHours: double.tryParse(_sleepController.text),
-            workoutMinutes: int.tryParse(_workoutController.text),
-          );
-      ref.invalidate(healthTodayProvider);
+      await ref.read(healthRepositoryProvider).addActivity(userId: userId, title: title, targetMinutes: target);
+      ref.invalidate(healthActivitiesProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -151,24 +246,25 @@ class _LogHealthSheetState extends ConsumerState<_LogHealthSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Log today's sleep & movement", style: theme.textTheme.titleLarge),
+            Text('New activity', style: theme.textTheme.titleLarge),
             const SizedBox(height: AppSpacing.lg),
             TextField(
-              controller: _sleepController,
+              controller: _titleController,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: fieldDecoration.copyWith(hintText: 'Hours of sleep last night'),
+              onChanged: (_) => setState(() {}),
+              textCapitalization: TextCapitalization.sentences,
+              decoration: fieldDecoration.copyWith(hintText: 'e.g. Tennis'),
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
-              controller: _workoutController,
+              controller: _targetController,
               keyboardType: TextInputType.number,
-              decoration: fieldDecoration.copyWith(hintText: 'Minutes of movement today'),
+              decoration: fieldDecoration.copyWith(hintText: 'Goal, in minutes a day'),
             ),
             const SizedBox(height: AppSpacing.xl),
             PrimaryButton(
-              label: _saving ? 'Saving...' : 'Save',
-              onPressed: _saving ? null : _save,
+              label: _saving ? 'Saving...' : 'Add activity',
+              onPressed: (_titleController.text.trim().isEmpty || _saving) ? null : _save,
             ),
           ],
         ),
