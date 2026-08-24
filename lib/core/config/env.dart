@@ -15,6 +15,21 @@ class Env {
   static const googleWebClientId =
       String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
 
+  // Firebase (push notifications) — values come from Firebase Console
+  // -> Project settings -> Your apps -> the relevant app's config, not
+  // from running the FlutterFire CLI. Same "paste values into
+  // config/local.json" pattern as everything else in this app.
+  static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
+  static const firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
+  static const firebaseMessagingSenderId =
+      String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
+  static const firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
+  static const firebaseAuthDomain = String.fromEnvironment('FIREBASE_AUTH_DOMAIN');
+  static const firebaseStorageBucket = String.fromEnvironment('FIREBASE_STORAGE_BUCKET');
+
   static bool get isSupabaseConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  static bool get isFirebaseConfigured =>
+      firebaseApiKey.isNotEmpty && firebaseAppId.isNotEmpty && firebaseProjectId.isNotEmpty;
 }

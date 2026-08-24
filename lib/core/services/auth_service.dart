@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
 import 'purchases_service.dart';
+import 'push_service.dart';
 
 /// Email/password + Google + Apple, per the planning decision — no other
 /// social providers, no phone auth.
@@ -94,6 +95,9 @@ class AuthService {
     final userId = currentUser?.id;
     if (userId != null) {
       await PurchasesService.logIn(userId);
+      await PushService.registerToken((token) async {
+        await _client.from('profiles').update({'fcm_token': token}).eq('id', userId);
+      });
     }
   }
 

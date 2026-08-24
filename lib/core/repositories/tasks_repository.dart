@@ -68,21 +68,28 @@ class TasksRepository {
   }
 
   /// [category] is the raw value to store — either a built-in
-  /// [TaskCategory]'s `.name`, or free-typed custom text.
-  Future<void> addTask({
+  /// [TaskCategory]'s `.name`, or free-typed custom text. Returns the
+  /// new task's id, so a reminder notification can be scheduled
+  /// against it when [dueTime] is set.
+  Future<String> addTask({
     required String userId,
     required String title,
     required String category,
     RecurrenceType recurrence = RecurrenceType.none,
     String? dueTime,
-  }) {
-    return _client.from('tasks').insert({
-      'user_id': userId,
-      'title': title,
-      'category': category,
-      'recurrence': recurrence.name,
-      if (dueTime != null) 'due_time': dueTime,
-    });
+  }) async {
+    final row = await _client
+        .from('tasks')
+        .insert({
+          'user_id': userId,
+          'title': title,
+          'category': category,
+          'recurrence': recurrence.name,
+          if (dueTime != null) 'due_time': dueTime,
+        })
+        .select('id')
+        .single();
+    return row['id'] as String;
   }
 
   Future<void> setDone({required String taskId, required String userId, required bool done}) {
