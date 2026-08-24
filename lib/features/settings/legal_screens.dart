@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config/env.dart';
 import '../../core/theme/app_spacing.dart';
 
 /// Shared scaffold for the plain scrollable legal/help pages.
@@ -140,14 +141,12 @@ class PrivacyPolicyScreen extends StatelessWidget {
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
 
-  static const _supportEmail = 'support@example.com';
-
   Future<void> _emailSupport(BuildContext context) async {
-    final uri = Uri(scheme: 'mailto', path: _supportEmail, query: 'subject=AI Mom support');
+    final uri = Uri(scheme: 'mailto', path: Env.supportEmail, query: 'subject=AI Mom support');
     if (!await launchUrl(uri)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Email us at $_supportEmail')),
+          SnackBar(content: Text('Email us at ${Env.supportEmail}')),
         );
       }
     }
