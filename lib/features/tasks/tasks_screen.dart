@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/models/plan.dart';
@@ -74,13 +75,35 @@ class _TaskRow extends ConsumerWidget {
 
   final TaskItem task;
 
-  Future<void> _archive(BuildContext context, WidgetRef ref) async {
+  /// Reveal-then-tap delete: swiping only opens the action pane (nothing
+  /// is removed yet), a confirm dialog guards the actual deletion, and a
+  /// cancel just closes the pane back up rather than deleting anything.
+  Future<void> _confirmAndArchive(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this task?'),
+        content: Text('"${task.title}" will be removed from your list. This can\'t be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: AppColors.moodDisappointed)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      if (context.mounted) Slidable.of(context)?.close();
+      return;
+    }
     try {
       await ref.read(tasksProvider.notifier).archiveTask(task.id);
     } catch (e) {
       if (context.mounted) {
+        Slidable.of(context)?.close();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't archive that: $e")),
+          SnackBar(content: Text("Couldn't delete that: $e")),
         );
       }
     }
@@ -102,36 +125,20 @@ class _TaskRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    return Dismissible(
+    return Slidable(
       key: ValueKey(task.id),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        return await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Archive this task?'),
-                content: Text('"${task.title}" will be removed from your list.'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Archive', style: TextStyle(color: AppColors.moodDisappointed)),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
-      },
-      onDismissed: (_) => _archive(context, ref),
-      background: const SizedBox.shrink(),
-      secondaryBackground: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: AppColors.moodDisappointed,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-        ),
-        child: const Icon(LucideIcons.trash2, color: Colors.white),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (actionContext) => _confirmAndArchive(actionContext, ref),
+            backgroundColor: AppColors.moodDisappointed,
+            foregroundColor: Colors.white,
+            icon: LucideIcons.trash2,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+          ),
+        ],
       ),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
