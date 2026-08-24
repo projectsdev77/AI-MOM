@@ -10,6 +10,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/utils/password.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/primary_button.dart';
 
@@ -27,13 +28,6 @@ const _procrastinationOptions = ['Exercise', 'Chores', 'Work deadlines', 'Sleepi
 const _dailyRoutineOptions = ['Early riser', 'Standard 9-to-5 kind of day', 'Night owl', 'Pretty irregular'];
 const _livingSituationOptions = ['On my own', 'With a partner or spouse', 'With family', 'With roommates'];
 const _motivationStyleOptions = ['Gentle encouragement', 'Tough love, tell it straight', 'A mix of both'];
-/// At least 8 characters with a mix of letters and numbers — strong
-/// enough to matter without demanding symbols nobody remembers.
-bool isStrongPassword(String password) {
-  return password.length >= 8 &&
-      RegExp(r'[A-Za-z]').hasMatch(password) &&
-      RegExp(r'[0-9]').hasMatch(password);
-}
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _pageController = PageController();
@@ -195,6 +189,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         _ => true,
       };
 
+  /// Single-choice steps (avatar, daily routine, living situation,
+  /// motivation style, check-in frequency) advance the moment someone
+  /// taps an option — no Continue button, so there's nothing to tap
+  /// through without actually answering. Multi-select and text steps
+  /// keep the button since there's no single "done picking" tap.
+  static const _autoAdvanceSteps = {0, 4, 5, 6, 8};
+  bool get _isAutoAdvanceStep => _autoAdvanceSteps.contains(_step) && !_isLoginMode;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -261,7 +263,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _AvatarStep(),
+                  _AvatarStep(onSelected: _next),
                   _NameStep(controller: _nameController, onChanged: () => setState(() {})),
                   _MultiSelectStep(
                     title: "What are you here to work on?",
@@ -282,20 +284,29 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     title: "What's your daily routine like?",
                     options: _dailyRoutineOptions,
                     selected: _dailyRoutine,
-                    onSelect: (o) => setState(() => _dailyRoutine = o),
+                    onSelect: (o) {
+                      setState(() => _dailyRoutine = o);
+                      _next();
+                    },
                   ),
                   _SingleSelectStep(
                     title: "What's your living situation?",
                     options: _livingSituationOptions,
                     selected: _livingSituation,
-                    onSelect: (o) => setState(() => _livingSituation = o),
+                    onSelect: (o) {
+                      setState(() => _livingSituation = o);
+                      _next();
+                    },
                   ),
                   _SingleSelectStep(
                     title: 'What motivates you best?',
                     subtitle: "This shapes how Mom talks to you.",
                     options: _motivationStyleOptions,
                     selected: _motivationStyle,
-                    onSelect: (o) => setState(() => _motivationStyle = o),
+                    onSelect: (o) {
+                      setState(() => _motivationStyle = o);
+                      _next();
+                    },
                   ),
                   _StressorStep(controller: _stressorController, onChanged: () => setState(() {})),
                   _SingleSelectStep(
@@ -303,7 +314,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     subtitle: 'You can change this later in Settings.',
                     options: checkInFrequencyOptions,
                     selected: _frequency,
-                    onSelect: (f) => setState(() => _frequency = f),
+                    onSelect: (f) {
+                      setState(() => _frequency = f);
+                      _next();
+                    },
                   ),
                   _AuthStep(
                     emailController: _emailController,
@@ -323,17 +337,18 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
-              child: PrimaryButton(
-                label: _step == _totalSteps - 1
-                    ? (_isLoginMode
-                        ? (_submitting ? 'Logging in...' : 'Log in')
-                        : (_submitting ? 'Creating account...' : 'Create account'))
-                    : 'Continue',
-                onPressed: _canContinue ? _next : null,
+            if (!_isAutoAdvanceStep)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+                child: PrimaryButton(
+                  label: _step == _totalSteps - 1
+                      ? (_isLoginMode
+                          ? (_submitting ? 'Logging in...' : 'Log in')
+                          : (_submitting ? 'Creating account...' : 'Create account'))
+                      : 'Continue',
+                  onPressed: _canContinue ? _next : null,
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -369,7 +384,8 @@ class _StepScaffold extends StatelessWidget {
 }
 
 class _AvatarStep extends ConsumerWidget {
-  const _AvatarStep();
+  const _AvatarStep({required this.onSelected});
+  final VoidCallback onSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -384,7 +400,10 @@ class _AvatarStep extends ConsumerWidget {
         children: [
           for (final style in MomAvatarStyle.values)
             GestureDetector(
-              onTap: () => ref.read(momAvatarStyleProvider.notifier).state = style,
+              onTap: () {
+                ref.read(momAvatarStyleProvider.notifier).state = style;
+                onSelected();
+              },
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
