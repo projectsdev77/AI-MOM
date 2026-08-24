@@ -8,6 +8,7 @@ import '../../core/models/plan.dart';
 import '../../core/models/task_item.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/track_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
@@ -15,6 +16,7 @@ import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/section_header.dart';
 import '../../core/widgets/streak_check.dart';
+import '../tasks/add_task_sheet.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -37,6 +39,15 @@ class DashboardScreen extends ConsumerWidget {
     final message = ref.watch(momMessageProvider);
     final momAvatar = ref.watch(effectiveMomAvatarProvider);
     final plan = ref.watch(planProvider);
+    final expensesAsync = ref.watch(expensesThisMonthProvider);
+    final healthTodayAsync = ref.watch(healthTodayProvider);
+    final healthGoalsAsync = ref.watch(healthGoalsProvider);
+
+    final spentCents = expensesAsync.valueOrNull?.fold<int>(0, (sum, e) => sum + e.amountCents) ?? 0;
+    final waterCount = healthTodayAsync.valueOrNull?.waterCount;
+    final waterTarget = healthGoalsAsync.valueOrNull?.waterTarget;
+
+    void goToTrackOrUpgrade() => plan.isFull ? context.go('/track') : context.push('/upgrade');
 
     final today = tasks.take(4).toList();
     final completed = tasks.where((t) => t.done).length;
@@ -83,50 +94,55 @@ class DashboardScreen extends ConsumerWidget {
                     tint: ChipTint.peach,
                     label: 'Tasks today',
                     value: '$completed/${tasks.length}',
+                    onTap: () => context.go('/tasks'),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: plan.isFull
-                      ? const _StatTile(
-                          icon: LucideIcons.wallet,
-                          tint: ChipTint.tan,
-                          label: 'Spent today',
-                          value: '\$24',
-                        )
-                      : const _StatTile(
-                          icon: LucideIcons.lock,
-                          tint: ChipTint.tan,
-                          label: 'Spending',
-                          value: 'Full only',
-                          dim: true,
-                        ),
+                  child: _StatTile(
+                    icon: LucideIcons.wallet,
+                    tint: ChipTint.tan,
+                    label: 'Spent this month',
+                    value: '\$${(spentCents / 100).toStringAsFixed(0)}',
+                    onTap: goToTrackOrUpgrade,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: plan.isFull
-                      ? const _StatTile(
-                          icon: LucideIcons.droplets,
-                          tint: ChipTint.sage,
-                          label: 'Water',
-                          value: '5/8',
-                        )
-                      : const _StatTile(
-                          icon: LucideIcons.lock,
-                          tint: ChipTint.sage,
-                          label: 'Health',
-                          value: 'Full only',
-                          dim: true,
-                        ),
+                  child: _StatTile(
+                    icon: LucideIcons.droplets,
+                    tint: ChipTint.sage,
+                    label: 'Water',
+                    value: waterTarget != null ? '${waterCount ?? 0}/$waterTarget' : 'Log it',
+                    onTap: goToTrackOrUpgrade,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: AppSpacing.xl),
             SectionHeader(
               title: "Today's tasks",
-              trailing: TextButton(
-                onPressed: () => context.go('/tasks'),
-                child: const Text('See all'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(LucideIcons.plus),
+                    tooltip: 'Quick add task',
+                    onPressed: () {
+                      if (!plan.isFull && tasks.length >= plan.maxActiveTasks) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Basic Mom covers up to ${plan.maxActiveTasks} active items — upgrade for unlimited.')),
+                        );
+                        return;
+                      }
+                      showAddTaskSheet(context);
+                    },
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/tasks'),
+                    child: const Text('See all'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -240,20 +256,21 @@ class _StatTile extends StatelessWidget {
     required this.tint,
     required this.label,
     required this.value,
-    this.dim = false,
+    this.onTap,
   });
 
   final IconData icon;
   final ChipTint tint;
   final String label;
   final String value;
-  final bool dim;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Opacity(
-      opacity: dim ? 0.6 : 1,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(

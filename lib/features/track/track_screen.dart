@@ -229,10 +229,18 @@ class _HealthCard extends ConsumerWidget {
                 onTap: () async {
                   final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
                   if (userId == null) return;
-                  await ref
-                      .read(healthRepositoryProvider)
-                      .logToday(userId: userId, waterCount: today.waterCount + 1);
-                  ref.invalidate(healthTodayProvider);
+                  try {
+                    await ref
+                        .read(healthRepositoryProvider)
+                        .logToday(userId: userId, waterCount: today.waterCount + 1);
+                    ref.invalidate(healthTodayProvider);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Couldn't log that: $e")),
+                      );
+                    }
+                  }
                 },
               ),
               const SizedBox(width: AppSpacing.md),

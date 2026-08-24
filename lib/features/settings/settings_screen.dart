@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/constants/check_in_frequency.dart';
 import '../../core/models/plan.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/purchases_service.dart';
@@ -33,7 +34,55 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed == true) await action();
+    if (confirmed != true) return;
+    try {
+      await action();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Something went wrong: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickCheckInFrequency(BuildContext context, WidgetRef ref, String current) async {
+    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+    if (userId == null) return;
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Check-in frequency'),
+        children: [
+          for (final option in checkInFrequencyOptions)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, option),
+              child: Row(
+                children: [
+                  Icon(
+                    option == current ? LucideIcons.circleCheck : LucideIcons.circle,
+                    size: 18,
+                    color: option == current ? AppColors.accent : null,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(option),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || selected == current) return;
+    try {
+      await ref.read(profileRepositoryProvider).updateCheckInFrequency(userId: userId, frequency: selected);
+      ref.invalidate(profileProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't save that: $e")),
+        );
+      }
+    }
   }
 
   @override
@@ -41,6 +90,8 @@ class SettingsScreen extends ConsumerWidget {
     final plan = ref.watch(planProvider);
     final user = ref.watch(supabaseClientProvider).auth.currentUser;
     final authService = ref.read(authServiceProvider);
+    final profile = ref.watch(profileProvider).valueOrNull;
+    final checkInFrequency = (profile?['check_in_frequency'] as String?) ?? checkInFrequencyOptions.first;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -78,9 +129,14 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const _Row(icon: LucideIcons.externalLink, label: 'Manage subscription'),
           ]),
-          const _Group(title: 'Mom', rows: [
-            _Row(icon: LucideIcons.smile, label: 'Change Mom\'s avatar'),
-            _Row(icon: LucideIcons.bellRing, label: 'Check-in frequency', value: 'A few times a day'),
+          _Group(title: 'Mom', rows: [
+            const _Row(icon: LucideIcons.smile, label: 'Change Mom\'s avatar'),
+            _Row(
+              icon: LucideIcons.bellRing,
+              label: 'Check-in frequency',
+              value: checkInFrequency,
+              onTap: () => _pickCheckInFrequency(context, ref, checkInFrequency),
+            ),
           ]),
           const _Group(title: 'Notifications', rows: [
             _Row(icon: LucideIcons.bell, label: 'System notification settings'),

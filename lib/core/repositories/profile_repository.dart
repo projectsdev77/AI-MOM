@@ -23,4 +23,8 @@ class ProfileRepository {
   Future<Map<String, dynamic>> fetch(String userId) {
     return _client.from('profiles').select().eq('id', userId).single();
   }
+
+  Future<void> updateCheckInFrequency({required String userId, required String frequency}) {
+    return _client.from('profiles').update({'check_in_frequency': frequency}).eq('id', userId);
+  }
 }

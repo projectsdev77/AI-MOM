@@ -50,6 +50,12 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
             recurrence: _recurrence,
           );
       if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't add that task: $e")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

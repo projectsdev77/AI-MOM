@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -38,6 +41,11 @@ class AuthService {
   }
 
   Future<void> signInWithGoogle() async {
+    if (Env.googleWebClientId.isEmpty) {
+      throw const AuthException(
+        "Google sign-in isn't set up yet — add GOOGLE_WEB_CLIENT_ID to config/local.json (see README's Setup step 5).",
+      );
+    }
     final googleSignIn = GoogleSignIn.instance;
     await googleSignIn.initialize(serverClientId: Env.googleWebClientId);
     final account = await googleSignIn.authenticate();
@@ -49,7 +57,17 @@ class AuthService {
     await _afterSignIn();
   }
 
+  /// The `sign_in_with_apple` plugin only talks to Apple's native ID
+  /// service on iOS/macOS. On Android and web it needs a Service ID and
+  /// return URL registered in an Apple Developer account (a paid
+  /// membership — see README) that this project doesn't have configured,
+  /// so this fails fast with a clear reason instead of a cryptic SDK error.
   Future<void> signInWithApple() async {
+    if (kIsWeb || !(Platform.isIOS || Platform.isMacOS)) {
+      throw const AuthException(
+        'Apple sign-in only works on iPhone/Mac right now and needs an Apple Developer account — use email or Google instead.',
+      );
+    }
     final credential = await SignInWithApple.getAppleIDCredential(
       scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
     );

@@ -10,6 +10,7 @@ import 'features/settings/settings_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/tasks/tasks_screen.dart';
 import 'features/track/track_screen.dart';
+import 'features/upgrade/upgrade_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/onboarding',
@@ -27,6 +28,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/onboarding',
       builder: (context, state) => const OnboardingFlow(),
+    ),
+    GoRoute(
+      path: '/upgrade',
+      builder: (context, state) => const UpgradeScreen(),
     ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),

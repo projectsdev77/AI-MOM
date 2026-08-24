@@ -50,14 +50,22 @@ Future<void> showHealthGoalsDialog(
           onPressed: () async {
             final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
             if (userId == null) return;
-            await ref.read(healthRepositoryProvider).setGoals(
-                  userId: userId,
-                  waterTarget: int.tryParse(waterController.text) ?? 8,
-                  sleepTargetHours: double.tryParse(sleepController.text) ?? 8,
-                  workoutTargetMinutes: int.tryParse(workoutController.text) ?? 30,
+            try {
+              await ref.read(healthRepositoryProvider).setGoals(
+                    userId: userId,
+                    waterTarget: int.tryParse(waterController.text) ?? 8,
+                    sleepTargetHours: double.tryParse(sleepController.text) ?? 8,
+                    workoutTargetMinutes: int.tryParse(workoutController.text) ?? 30,
+                  );
+              ref.invalidate(healthGoalsProvider);
+              if (context.mounted) Navigator.pop(context);
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Couldn't save your goals: $e")),
                 );
-            ref.invalidate(healthGoalsProvider);
-            if (context.mounted) Navigator.pop(context);
+              }
+            }
           },
           child: const Text('Save'),
         ),
@@ -106,6 +114,12 @@ class _LogHealthSheetState extends ConsumerState<_LogHealthSheet> {
           );
       ref.invalidate(healthTodayProvider);
       if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't save that: $e")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

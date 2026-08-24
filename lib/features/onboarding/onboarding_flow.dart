@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/config/preview_mode.dart';
+import '../../core/constants/check_in_frequency.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
@@ -22,7 +23,13 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 
 const _goalOptions = ['Get more done', 'Build habits', 'Spend less', 'Get healthier'];
 const _procrastinationOptions = ['Exercise', 'Chores', 'Work deadlines', 'Sleeping on time', 'Spending less'];
-const _frequencyOptions = ['A few times a day', 'Once a day', 'A few times a week'];
+/// At least 8 characters with a mix of letters and numbers — strong
+/// enough to matter without demanding symbols nobody remembers.
+bool isStrongPassword(String password) {
+  return password.length >= 8 &&
+      RegExp(r'[A-Za-z]').hasMatch(password) &&
+      RegExp(r'[0-9]').hasMatch(password);
+}
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _pageController = PageController();
@@ -32,7 +39,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _passwordController = TextEditingController();
   final _goals = <String>{};
   final _procrastination = <String>{};
-  String _frequency = _frequencyOptions.first;
+  String _frequency = checkInFrequencyOptions.first;
   bool _submitting = false;
   bool _isLoginMode = false;
   String? _error;
@@ -55,6 +62,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
+  }
+
+  void _previous() {
+    if (_step > 0) _goToStep(_step - 1);
   }
 
   Future<void> _submit() async {
@@ -86,6 +97,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       setState(() => _error = _friendlyError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      setState(() => _error = 'Enter your email above first, then tap "Forgot password?" again.');
+      return;
+    }
+    try {
+      await ref.read(authServiceProvider).sendPasswordReset(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('If that email has an account, a reset link is on its way.')),
+        );
+      }
+    } catch (e) {
+      setState(() => _error = _friendlyError(e));
     }
   }
 
@@ -149,7 +178,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   bool get _canContinue => switch (_step) {
         1 => _nameController.text.trim().isNotEmpty,
-        5 => !_submitting && _emailController.text.contains('@') && _passwordController.text.length >= 8,
+        5 => !_submitting &&
+            _emailController.text.contains('@') &&
+            (_isLoginMode
+                ? _passwordController.text.isNotEmpty
+                : isStrongPassword(_passwordController.text)),
         _ => true,
       };
 
@@ -175,9 +208,20 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
               )
             else
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.md, AppSpacing.lg, 0),
                 child: Row(
                   children: [
+                    SizedBox(
+                      width: 40,
+                      child: _step > 0
+                          ? IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(LucideIcons.arrowLeft),
+                              onPressed: _previous,
+                              tooltip: 'Back',
+                            )
+                          : null,
+                    ),
                     for (var i = 0; i < _totalSteps; i++)
                       Expanded(
                         child: Container(
@@ -236,6 +280,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     submitting: _submitting,
                     error: _error,
                     isLoginMode: _isLoginMode,
+                    onForgotPasswordTap: _forgotPassword,
                     onGoogleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithGoogle),
                     onAppleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithApple),
                     onPreviewTap: () {
@@ -407,7 +452,7 @@ class _FrequencyStep extends StatelessWidget {
       child: SingleChildScrollView(
         child: Column(
           children: [
-            for (final f in _frequencyOptions)
+            for (final f in checkInFrequencyOptions)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: _ChoiceCard(
@@ -473,6 +518,7 @@ class _AuthStep extends StatelessWidget {
     required this.submitting,
     required this.error,
     required this.isLoginMode,
+    required this.onForgotPasswordTap,
     required this.onGoogleTap,
     required this.onAppleTap,
     required this.onPreviewTap,
@@ -484,6 +530,7 @@ class _AuthStep extends StatelessWidget {
   final bool submitting;
   final String? error;
   final bool isLoginMode;
+  final VoidCallback onForgotPasswordTap;
   final VoidCallback onGoogleTap;
   final VoidCallback onAppleTap;
   final VoidCallback onPreviewTap;
@@ -523,6 +570,18 @@ class _AuthStep extends StatelessWidget {
               hintText: isLoginMode ? 'Password' : 'Password (min. 8 characters)',
             ),
           ),
+          if (isLoginMode) ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: submitting ? null : onForgotPasswordTap,
+                child: const Text('Forgot password?'),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: AppSpacing.sm),
+            _PasswordRequirements(password: passwordController.text),
+          ],
           if (error != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(error!, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.moodDisappointed)),
@@ -567,6 +626,45 @@ class _AuthStep extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _PasswordRequirements extends StatelessWidget {
+  const _PasswordRequirements({required this.password});
+  final String password;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final checks = <(String, bool)>[
+      ('At least 8 characters', password.length >= 8),
+      ('A letter and a number', RegExp(r'[A-Za-z]').hasMatch(password) && RegExp(r'[0-9]').hasMatch(password)),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (label, met) in checks)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                Icon(
+                  met ? LucideIcons.circleCheck : LucideIcons.circle,
+                  size: 14,
+                  color: met ? AppColors.moodHappy : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: met ? AppColors.moodHappy : theme.textTheme.labelSmall?.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

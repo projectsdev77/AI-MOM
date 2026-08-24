@@ -25,7 +25,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String? _sessionId;
   bool _loadingHistory = false;
   bool _sending = false;
-  int? _remainingThisWeek;
   bool _atWeeklyLimit = false;
   String? _error;
 
@@ -73,7 +72,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       setState(() {
         _sessionId = result.sessionId;
         _messages.add(ChatMessageRow(fromMom: true, content: result.reply));
-        _remainingThisWeek = result.remainingThisWeek;
         _atWeeklyLimit = (result.remainingThisWeek ?? 1) < 0;
       });
     } on WeeklyChatLimitReached {
@@ -123,19 +121,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
-          if (_remainingThisWeek != null && !_atWeeklyLimit)
-            Container(
-              width: double.infinity,
-              color: AppColors.chipPeach,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              child: Text(
-                '${_remainingThisWeek! + 1} messages left with Mom this week.',
-                style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textPrimaryLight),
-              ),
-            ),
           if (_atWeeklyLimit)
             Container(
               width: double.infinity,

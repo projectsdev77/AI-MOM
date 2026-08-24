@@ -62,6 +62,12 @@ class _AddExpenseSheetState extends ConsumerState<_AddExpenseSheet> {
           );
       ref.invalidate(expensesThisMonthProvider);
       if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't log that expense: $e")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -166,12 +172,20 @@ Future<void> showSetBudgetDialog(BuildContext context, WidgetRef ref, {int? curr
             if (amount == null || amount <= 0) return;
             final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
             if (userId == null) return;
-            await ref.read(financeRepositoryProvider).setOverallBudget(
-                  userId: userId,
-                  amountCents: (amount * 100).round(),
+            try {
+              await ref.read(financeRepositoryProvider).setOverallBudget(
+                    userId: userId,
+                    amountCents: (amount * 100).round(),
+                  );
+              ref.invalidate(overallBudgetCentsProvider);
+              if (context.mounted) Navigator.pop(context);
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Couldn't save that budget: $e")),
                 );
-            ref.invalidate(overallBudgetCentsProvider);
-            if (context.mounted) Navigator.pop(context);
+              }
+            }
           },
           child: const Text('Save'),
         ),
