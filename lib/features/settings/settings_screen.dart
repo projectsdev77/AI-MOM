@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/check_in_frequency.dart';
@@ -270,6 +271,16 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _openNotificationSettings(BuildContext context) async {
+    if (kIsWeb || !(await openAppSettings())) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Open your phone's Settings app to manage AI Mom's notifications.")),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plan = ref.watch(planProvider);
@@ -343,8 +354,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => _pickCheckInFrequency(context, ref, checkInFrequency),
             ),
           ]),
-          const _Group(title: 'Notifications', rows: [
-            _Row(icon: LucideIcons.bell, label: 'System notification settings'),
+          _Group(title: 'Notifications', rows: [
+            _Row(
+              icon: LucideIcons.bell,
+              label: 'System notification settings',
+              onTap: () => _openNotificationSettings(context),
+            ),
           ]),
           _Group(title: 'Preferences', rows: [
             _Row(
@@ -353,7 +368,6 @@ class SettingsScreen extends ConsumerWidget {
               value: currency,
               onTap: () => _pickCurrency(context, ref, currency),
             ),
-            const _Row(icon: LucideIcons.ruler, label: 'Units', value: 'Imperial'),
             _Row(
               icon: LucideIcons.moonStar,
               label: 'Appearance',

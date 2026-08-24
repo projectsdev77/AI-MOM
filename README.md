@@ -142,20 +142,37 @@ configuration" screen instead of crashing.
 ## What's working right now vs. still to build
 
 **Working, connected to the real backend:**
-- Signing up / logging in (email, Google, Apple)
+- Signing up / logging in (email or Google)
 - Onboarding questions save to your profile
-- Adding tasks/habits, checking them off, streaks
+- Adding tasks/habits, checking them off, streaks, swipe-to-delete —
+  the Basic plan's 5-task limit is enforced by the database itself,
+  not just the app
 - Chatting with Mom (with the free-plan weekly message limit enforced
   for real, not just shown in the app)
-- Logging expenses and setting a budget
-- Logging water/sleep/movement and setting health goals
+- Financial tracking: expenses, an overall budget, and per-category
+  budgets with a visual tracker
+- Health tracking: water/sleep/movement plus your own custom "stay
+  active" activities (e.g. "Tennis, 60 min/day goal")
+- Settings: change email/password, change Mom's avatar, light/dark
+  override, currency choice, real Terms of Service/Privacy
+  Policy/Help content
 - Deleting your account, logging out
-- The Basic vs. Full plan gate, driven by RevenueCat
+- The Basic vs. Full plan gate, driven by RevenueCat (though there's
+  nothing real to *purchase* yet — see below)
+
+**Apple Sign-In: built, but not usable yet.** The code path exists
+(`AuthService.signInWithApple`) and fails with a clear in-app message
+rather than crashing, but it needs a paid Apple Developer Program
+membership ($99/year) to actually configure and test — not something
+that can be set up without that account. Use email or Google sign-in
+until that's set up.
 
 **Not built yet:**
-- Push notifications / Mom's nagging messages (the plan for this is in
-  our chat history, not built yet)
-- The nightly "did you miss a streak" check needs to be scheduled in
-  Supabase (the logic exists in `0002_streak_decay.sql`, it just needs
-  to be turned on with `pg_cron` once you have a live project)
-- Currency and measurement-unit settings are display-only for now
+- Push notifications / Mom's nagging messages
+- Real subscription purchases — needs App Store Connect / Google Play
+  Console products configured, which needs paid developer accounts
+- Measurement-unit settings (currency works; a metric/imperial toggle
+  doesn't, since nothing in the app currently displays a
+  unit-dependent value like weight or distance)
+- App Store / Play Store submission itself — icon, screenshots,
+  listing copy, real device testing
