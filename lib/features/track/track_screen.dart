@@ -9,6 +9,7 @@ import '../../core/repositories/finance_repository.dart';
 import '../../core/repositories/health_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/locked_feature_overlay.dart';
 import '../../core/widgets/section_header.dart';
 import 'finance_widgets.dart';
@@ -237,7 +238,7 @@ class _HealthCard extends ConsumerWidget {
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Couldn't log that: $e")),
+                        SnackBar(content: Text(friendlyError(e))),
                       );
                     }
                   }

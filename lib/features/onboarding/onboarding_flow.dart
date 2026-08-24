@@ -9,6 +9,7 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/primary_button.dart';
 
@@ -102,7 +103,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       // The router's auth-state listener takes it from here and redirects
       // to /dashboard once the session is set.
     } catch (e) {
-      setState(() => _error = _friendlyError(e));
+      setState(() => _error = friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -122,7 +123,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         );
       }
     } catch (e) {
-      setState(() => _error = _friendlyError(e));
+      setState(() => _error = friendlyAuthError(e));
     }
   }
 
@@ -169,16 +170,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       // signInWithIdToken creates the account on first use either way.
       if (!_isLoginMode) await _saveOnboardingAnswers();
     } catch (e) {
-      setState(() => _error = _friendlyError(e));
+      setState(() => _error = friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
-  String _friendlyError(Object e) {
-    final message = e.toString();
-    return message.length > 140 ? '${message.substring(0, 140)}...' : message;
-  }
 
   void _next() {
     if (_step == _totalSteps - 1) {

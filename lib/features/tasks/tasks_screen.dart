@@ -9,6 +9,7 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/streak_check.dart';
 import 'add_task_sheet.dart';
@@ -103,7 +104,7 @@ class _TaskRow extends ConsumerWidget {
       if (context.mounted) {
         Slidable.of(context)?.close();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't delete that: $e")),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }

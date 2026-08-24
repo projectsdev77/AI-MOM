@@ -8,6 +8,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/purchases_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/section_header.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -40,7 +41,7 @@ class SettingsScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Something went wrong: $e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }
@@ -79,7 +80,7 @@ class SettingsScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't save that: $e")),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }

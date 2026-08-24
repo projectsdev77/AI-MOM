@@ -34,6 +34,12 @@ final chatRepositoryProvider = Provider<ChatRepository>(
   (ref) => ChatRepository(ref.watch(supabaseClientProvider)),
 );
 
+final chatSessionsProvider = FutureProvider.autoDispose<List<ChatSessionSummary>>((ref) async {
+  final userId = ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return const [];
+  return ref.watch(chatRepositoryProvider).fetchSessions(userId);
+});
+
 final financeRepositoryProvider = Provider<FinanceRepository>(
   (ref) => FinanceRepository(ref.watch(supabaseClientProvider)),
 );

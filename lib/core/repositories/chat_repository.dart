@@ -38,6 +38,12 @@ class ChatRepository {
     ];
   }
 
+  /// Messages cascade-delete with the session (see the
+  /// `on delete cascade` foreign key in migrations/0001_init.sql).
+  Future<void> deleteSession(String sessionId) {
+    return _client.from('chat_sessions').delete().eq('id', sessionId);
+  }
+
   Future<List<ChatMessageRow>> fetchMessages(String sessionId) async {
     final rows = await _client
         .from('chat_messages')

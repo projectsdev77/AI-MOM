@@ -5,6 +5,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/primary_button.dart';
 
@@ -65,7 +66,7 @@ class _AddExpenseSheetState extends ConsumerState<_AddExpenseSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't log that expense: $e")),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {
@@ -182,7 +183,7 @@ Future<void> showSetBudgetDialog(BuildContext context, WidgetRef ref, {int? curr
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Couldn't save that budget: $e")),
+                  SnackBar(content: Text(friendlyError(e))),
                 );
               }
             }

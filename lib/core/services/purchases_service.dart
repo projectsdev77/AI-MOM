@@ -51,4 +51,23 @@ class PurchasesService {
     if (kIsWeb) return;
     await Purchases.restorePurchases();
   }
+
+  /// The current offering's packages (e.g. monthly/annual Full Mom
+  /// plans) to show on the plan-selection page — `null` when there's
+  /// nothing real to sell yet: web, no RevenueCat project configured,
+  /// or no offering set up in the RevenueCat dashboard.
+  static Future<Offering?> fetchCurrentOffering() async {
+    if (kIsWeb) return null;
+    if (!await Purchases.isConfigured) return null;
+    try {
+      final offerings = await Purchases.getOfferings();
+      return offerings.current;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> purchasePackage(Package package) async {
+    await Purchases.purchase(PurchaseParams.package(package));
+  }
 }

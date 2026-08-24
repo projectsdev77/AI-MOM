@@ -5,6 +5,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/primary_button.dart';
 
 /// Shown the first time the user opens the Health tab (no `health_goals`
@@ -62,7 +63,7 @@ Future<void> showHealthGoalsDialog(
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Couldn't save your goals: $e")),
+                  SnackBar(content: Text(friendlyError(e))),
                 );
               }
             }
@@ -117,7 +118,7 @@ class _LogHealthSheetState extends ConsumerState<_LogHealthSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't save that: $e")),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {

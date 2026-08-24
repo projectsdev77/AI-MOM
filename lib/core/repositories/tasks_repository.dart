@@ -11,12 +11,10 @@ class TasksRepository {
 
   final SupabaseClient _client;
 
-  String _today() {
-    final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
-  }
+  String _today() => _dateOnly(DateTime.now());
+
+  String _dateOnly(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   /// The DB column is free text (a built-in category's `.name`, or
   /// whatever custom text someone typed) — [TaskCategory.values.byName]
@@ -100,6 +98,28 @@ class TasksRepository {
         .delete()
         .eq('task_id', taskId)
         .eq('completed_date', _today());
+  }
+
+  /// Which dates in [month] have at least one completed task, and what
+  /// those tasks were titled — for the dashboard calendar's day dots
+  /// and per-day summary. Keyed by `yyyy-MM-dd`.
+  Future<Map<String, List<String>>> fetchCompletionsForMonth(String userId, DateTime month) async {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
+    final rows = await _client
+        .from('task_completions')
+        .select('completed_date, tasks(title)')
+        .eq('user_id', userId)
+        .gte('completed_date', _dateOnly(start))
+        .lt('completed_date', _dateOnly(end));
+
+    final byDate = <String, List<String>>{};
+    for (final row in rows) {
+      final date = row['completed_date'] as String;
+      final title = (row['tasks'] as Map?)?['title'] as String? ?? 'Task';
+      (byDate[date] ??= []).add(title);
+    }
+    return byDate;
   }
 
   Future<void> archiveTask(String taskId) {

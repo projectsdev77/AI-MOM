@@ -5,6 +5,7 @@ import '../../core/models/task_item.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/primary_button.dart';
 
@@ -62,7 +63,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't add that task: $e")),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     } finally {
