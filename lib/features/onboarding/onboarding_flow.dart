@@ -23,6 +23,9 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 
 const _goalOptions = ['Get more done', 'Build habits', 'Spend less', 'Get healthier'];
 const _procrastinationOptions = ['Exercise', 'Chores', 'Work deadlines', 'Sleeping on time', 'Spending less'];
+const _dailyRoutineOptions = ['Early riser', 'Standard 9-to-5 kind of day', 'Night owl', 'Pretty irregular'];
+const _livingSituationOptions = ['On my own', 'With a partner or spouse', 'With family', 'With roommates'];
+const _motivationStyleOptions = ['Gentle encouragement', 'Tough love, tell it straight', 'A mix of both'];
 /// At least 8 characters with a mix of letters and numbers — strong
 /// enough to matter without demanding symbols nobody remembers.
 bool isStrongPassword(String password) {
@@ -39,12 +42,16 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _passwordController = TextEditingController();
   final _goals = <String>{};
   final _procrastination = <String>{};
+  final _stressorController = TextEditingController();
+  String? _dailyRoutine;
+  String? _livingSituation;
+  String? _motivationStyle;
   String _frequency = checkInFrequencyOptions.first;
   bool _submitting = false;
   bool _isLoginMode = false;
   String? _error;
 
-  static const _totalSteps = 6;
+  static const _totalSteps = 10;
 
   @override
   void dispose() {
@@ -52,6 +59,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _stressorController.dispose();
     super.dispose();
   }
 
@@ -140,6 +148,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           goals: _goals.toList(),
           procrastinationAreas: _procrastination.toList(),
           checkInFrequency: _frequency,
+          dailyRoutine: _dailyRoutine,
+          livingSituation: _livingSituation,
+          motivationStyle: _motivationStyle,
+          currentStressor: _stressorController.text,
         );
   }
 
@@ -178,7 +190,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   bool get _canContinue => switch (_step) {
         1 => _nameController.text.trim().isNotEmpty,
-        5 => !_submitting &&
+        9 => !_submitting &&
             _emailController.text.contains('@') &&
             (_isLoginMode
                 ? _passwordController.text.isNotEmpty
@@ -269,7 +281,30 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     onToggle: (o) => setState(
                         () => _procrastination.contains(o) ? _procrastination.remove(o) : _procrastination.add(o)),
                   ),
-                  _FrequencyStep(
+                  _SingleSelectStep(
+                    title: "What's your daily routine like?",
+                    options: _dailyRoutineOptions,
+                    selected: _dailyRoutine,
+                    onSelect: (o) => setState(() => _dailyRoutine = o),
+                  ),
+                  _SingleSelectStep(
+                    title: "What's your living situation?",
+                    options: _livingSituationOptions,
+                    selected: _livingSituation,
+                    onSelect: (o) => setState(() => _livingSituation = o),
+                  ),
+                  _SingleSelectStep(
+                    title: 'What motivates you best?',
+                    subtitle: "This shapes how Mom talks to you.",
+                    options: _motivationStyleOptions,
+                    selected: _motivationStyle,
+                    onSelect: (o) => setState(() => _motivationStyle = o),
+                  ),
+                  _StressorStep(controller: _stressorController, onChanged: () => setState(() {})),
+                  _SingleSelectStep(
+                    title: 'How often should Mom check in?',
+                    subtitle: 'You can change this later in Settings.',
+                    options: checkInFrequencyOptions,
                     selected: _frequency,
                     onSelect: (f) => setState(() => _frequency = f),
                   ),
@@ -439,30 +474,76 @@ class _MultiSelectStep extends StatelessWidget {
   }
 }
 
-class _FrequencyStep extends StatelessWidget {
-  const _FrequencyStep({required this.selected, required this.onSelect});
-  final String selected;
+/// A single-choice question step — every "pick one of these" onboarding
+/// screen (check-in frequency, daily routine, living situation,
+/// motivation style) is this same shape. [selected] being `null` (no
+/// pick made yet) just shows nothing highlighted — every one of these
+/// questions is optional, so Continue never blocks on it.
+class _SingleSelectStep extends StatelessWidget {
+  const _SingleSelectStep({
+    required this.title,
+    this.subtitle,
+    required this.options,
+    required this.selected,
+    required this.onSelect,
+  });
+  final String title;
+  final String? subtitle;
+  final List<String> options;
+  final String? selected;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
     return _StepScaffold(
-      title: 'How often should Mom check in?',
-      subtitle: 'You can change this later in Settings.',
+      title: title,
+      subtitle: subtitle,
       child: SingleChildScrollView(
         child: Column(
           children: [
-            for (final f in checkInFrequencyOptions)
+            for (final o in options)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: _ChoiceCard(
-                  label: f,
-                  selected: selected == f,
-                  onTap: () => onSelect(f),
+                  label: o,
+                  selected: selected == o,
+                  onTap: () => onSelect(o),
                   fullWidth: true,
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Free-text, entirely optional — the only step with no chips to tap.
+class _StressorStep extends StatelessWidget {
+  const _StressorStep({required this.controller, required this.onChanged});
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _StepScaffold(
+      title: "What's weighing on you most right now?",
+      subtitle: 'Totally optional — skip if you\'d rather not say.',
+      child: TextField(
+        controller: controller,
+        onChanged: (_) => onChanged(),
+        maxLines: 4,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          hintText: 'e.g. work deadlines, money, a big life change...',
+          filled: true,
+          fillColor: theme.cardTheme.color,
+          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+            borderSide: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
+          ),
         ),
       ),
     );

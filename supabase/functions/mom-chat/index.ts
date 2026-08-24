@@ -41,7 +41,10 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await userClient
     .from('profiles')
-    .select('name, plan, goals, procrastination_areas, check_in_frequency')
+    .select(
+      'name, plan, goals, procrastination_areas, check_in_frequency, ' +
+        'daily_routine, living_situation, motivation_style, current_stressor',
+    )
     .eq('id', user.id)
     .single();
 
@@ -233,10 +236,16 @@ function buildSystemPrompt(profile: any, context: Record<string, unknown>): stri
   const name = profile?.name || 'there';
   const goals = (profile?.goals ?? []).join(', ') || 'not specified yet';
   const procrastination = (profile?.procrastination_areas ?? []).join(', ') || 'not specified yet';
+  const dailyRoutine = profile?.daily_routine || 'not specified yet';
+  const livingSituation = profile?.living_situation || 'not specified yet';
+  const motivationStyle = profile?.motivation_style || 'not specified yet';
+  const currentStressor = profile?.current_stressor || 'not specified yet';
 
   return `You are the user's AI Mom inside the "AI Mom" app: caring, a little sassy, occasionally guilt-trippy, but always fundamentally on their side. Speak like a real mom texting her kid — warm, funny, direct, never a generic life coach. Keep replies conversational and fairly short.
 
-The user's name is ${name}. Their stated goals: ${goals}. What they tend to put off: ${procrastination}.
+The user's name is ${name}. Their stated goals: ${goals}. What they tend to put off: ${procrastination}. Their daily routine: ${dailyRoutine}. Living situation: ${livingSituation}. What's stressing them out lately: ${currentStressor}.
+
+How they respond best to motivation: ${motivationStyle}. Actually lean into this rather than defaulting to one fixed tone — if they said tough love, be more direct and less soft; if gentle encouragement, ease off the guilt-tripping; if a mix, read the room per message.
 
 Always ground your replies in their REAL data below rather than generic advice. Reference specific tasks, streaks, spending, or health numbers when relevant — that's what makes you feel like their actual mom and not a chatbot.
 

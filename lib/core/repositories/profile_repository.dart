@@ -11,12 +11,21 @@ class ProfileRepository {
     required List<String> goals,
     required List<String> procrastinationAreas,
     required String checkInFrequency,
+    String? dailyRoutine,
+    String? livingSituation,
+    String? motivationStyle,
+    String? currentStressor,
   }) {
     return _client.from('profiles').update({
       'mom_avatar_style': momAvatarStyle,
       'goals': goals,
       'procrastination_areas': procrastinationAreas,
       'check_in_frequency': checkInFrequency,
+      if (dailyRoutine != null) 'daily_routine': dailyRoutine,
+      if (livingSituation != null) 'living_situation': livingSituation,
+      if (motivationStyle != null) 'motivation_style': motivationStyle,
+      if (currentStressor != null && currentStressor.trim().isNotEmpty)
+        'current_stressor': currentStressor.trim(),
     }).eq('id', userId);
   }
 
