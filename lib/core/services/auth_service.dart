@@ -52,10 +52,21 @@ class AuthService {
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
+  /// The `google_sign_in` plugin only ships real implementations for
+  /// Android, iOS/macOS, and web — there is no Windows or Linux desktop
+  /// implementation, so calling it there throws a plugin exception
+  /// rather than doing anything. Checked up front so that failure reads
+  /// as "wrong platform," not a cryptic generic error.
   Future<void> signInWithGoogle() async {
     if (Env.googleWebClientId.isEmpty) {
       throw const AuthException(
         "Google sign-in isn't set up yet — add GOOGLE_WEB_CLIENT_ID to config/local.json (see README's Setup step 5).",
+      );
+    }
+    if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
+      throw const AuthException(
+        "Google sign-in only works on Android, iPhone/Mac, or in a browser — not on this desktop build. "
+        'Use email sign-in here, or test Google sign-in on a phone, emulator, or in Chrome.',
       );
     }
     final googleSignIn = GoogleSignIn.instance;

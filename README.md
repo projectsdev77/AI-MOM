@@ -226,6 +226,16 @@ membership ($99/year) to actually configure and test — not something
 that can be set up without that account. Use email or Google sign-in
 until that's set up.
 
+**A note on testing during development:** if you're running this via
+`flutter run -d windows` (a Windows desktop build) while developing,
+be aware that's not this app's real target platform, and two things
+behave differently there than they will on a phone: Google Sign-In
+fails with a clear "not supported on this desktop build" message
+(the `google_sign_in` plugin has no Windows implementation at all —
+test it on Android, iPhone, or in Chrome instead), and on-device
+notifications silently do nothing (same reason — Android/iOS only).
+Neither is a bug; both work as expected on Android/iOS.
+
 **Not built yet:**
 - Real subscription purchases — needs App Store Connect / Google Play
   Console products configured, which needs paid developer accounts
