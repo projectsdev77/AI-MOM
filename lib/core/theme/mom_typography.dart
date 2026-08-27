@@ -29,6 +29,14 @@ class MomText {
   /// Card title — 17/700.
   static TextStyle cardTitle(Color color) => _jakarta(17, FontWeight.w700, color);
 
+  /// Bottom-sheet / dialog title — 20/800 (e.g. "Log water", "Log an
+  /// expense", "New activity").
+  static TextStyle sheetTitle(Color color) => _jakarta(20, FontWeight.w800, color);
+
+  /// Metric-card value — 22/800 (Health tracking's water/sleep/exercise
+  /// cards).
+  static TextStyle metricValue(Color color) => _jakarta(22, FontWeight.w800, color);
+
   /// Section header — 15/700.
   static TextStyle section(Color color) => _jakarta(15, FontWeight.w700, color);
 

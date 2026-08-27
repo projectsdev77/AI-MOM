@@ -123,7 +123,7 @@ class _AddExpenseSheetState extends ConsumerState<_AddExpenseSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Log an expense', style: MomText.cardTitle(mom.ink).copyWith(fontSize: 20, fontWeight: FontWeight.w800)),
+                      Text('Log an expense', style: MomText.sheetTitle(mom.ink)),
                       Text("I'll fold it into this month's total.", style: MomText.meta(mom.inkMuted, size: 12.5)),
                     ],
                   ),
