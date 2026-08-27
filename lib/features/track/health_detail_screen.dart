@@ -88,59 +88,61 @@ class HealthDetailScreen extends ConsumerWidget {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl),
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _MetricCard(
-                            metric: _Metric.water,
-                            icon: LucideIcons.droplets,
-                            tint: ChipTint.sage,
-                            label: 'Water',
-                            value: '${today.waterCount}',
-                            goal: '${goals.waterTarget}',
-                            onQuickAdd: () async {
-                              final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
-                              if (userId == null) return;
-                              try {
-                                await ref
-                                    .read(healthRepositoryProvider)
-                                    .logToday(userId: userId, waterCount: today.waterCount + 1);
-                                ref.invalidate(healthTodayProvider);
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context)
-                                      .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _MetricCard(
+                              metric: _Metric.water,
+                              icon: LucideIcons.droplets,
+                              tint: ChipTint.sage,
+                              label: 'Water',
+                              value: '${today.waterCount}',
+                              goal: '${goals.waterTarget}',
+                              onQuickAdd: () async {
+                                final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+                                if (userId == null) return;
+                                try {
+                                  await ref
+                                      .read(healthRepositoryProvider)
+                                      .logToday(userId: userId, waterCount: today.waterCount + 1);
+                                  ref.invalidate(healthTodayProvider);
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+                                  }
                                 }
-                              }
-                            },
+                              },
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: _MetricCard(
-                            metric: _Metric.sleep,
-                            icon: LucideIcons.moon,
-                            tint: ChipTint.blush,
-                            label: 'Sleep',
-                            value: today.sleepHours != null ? '${today.sleepHours}h' : '—',
-                            goal: '${goals.sleepTargetHours}h',
-                            onQuickAdd: () => showLogSleepSheet(context, ref),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: _MetricCard(
+                              metric: _Metric.sleep,
+                              icon: LucideIcons.moon,
+                              tint: ChipTint.blush,
+                              label: 'Sleep',
+                              value: today.sleepHours != null ? '${today.sleepHours}h' : '—',
+                              goal: '${goals.sleepTargetHours}h',
+                              onQuickAdd: () => showLogSleepSheet(context, ref),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: _MetricCard(
-                            metric: _Metric.exercise,
-                            icon: LucideIcons.dumbbell,
-                            tint: ChipTint.peach,
-                            label: 'Exercise',
-                            value: '${today.workoutMinutes}m',
-                            goal: '${goals.workoutTargetMinutes}m',
-                            onQuickAdd: () => showLogWorkoutSheet(context, ref),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: _MetricCard(
+                              metric: _Metric.exercise,
+                              icon: LucideIcons.dumbbell,
+                              tint: ChipTint.peach,
+                              label: 'Exercise',
+                              value: '${today.workoutMinutes}m',
+                              goal: '${goals.workoutTargetMinutes}m',
+                              onQuickAdd: () => showLogWorkoutSheet(context, ref),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     Row(
