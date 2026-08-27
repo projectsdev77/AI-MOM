@@ -157,9 +157,13 @@ class _TotalBudgetCard extends StatelessWidget {
           ),
           Text(
             remaining != null
-                ? '${formatMoney(remaining < 0 ? 0 : remaining, currency)} left'
+                ? (remaining < 0
+                    ? '${formatMoney(-remaining, currency)} over budget'
+                    : '${formatMoney(remaining, currency)} left')
                 : '${formatMoney(spentCents, currency)} spent',
-            style: theme.textTheme.headlineLarge,
+            style: theme.textTheme.headlineLarge?.copyWith(
+              color: remaining != null && remaining < 0 ? AppColors.moodDisappointed : null,
+            ),
           ),
           if (budgetCents != null) ...[
             const SizedBox(height: 2),
