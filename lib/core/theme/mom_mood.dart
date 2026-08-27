@@ -31,4 +31,19 @@ extension MomMoodX on MomMood {
         MomMood.veryDisappointed =>
           'assets/mom/expression_very_disappointed.png',
       };
+
+  /// The avatar-art expression the score-driven mood renders as. There's
+  /// no art more severe than "mad", so both negative mood levels share it.
+  MomExpression get expression => switch (this) {
+        MomMood.proud => MomExpression.happy,
+        MomMood.neutral => MomExpression.normal,
+        MomMood.disappointed => MomExpression.mad,
+        MomMood.veryDisappointed => MomExpression.mad,
+      };
 }
+
+/// The 4 avatar-art expressions in the design system's SVG set. Distinct
+/// from [MomMood]: mood is score-driven, expression is what's actually
+/// drawn — some screens (a log dialog, a summary card) need "notes" or a
+/// specific expression regardless of the current rolling mood.
+enum MomExpression { happy, normal, mad, notes }
