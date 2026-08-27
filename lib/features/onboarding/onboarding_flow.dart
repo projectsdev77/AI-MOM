@@ -42,6 +42,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   String? _livingSituation;
   String? _motivationStyle;
   String _frequency = checkInFrequencyOptions.first;
+  bool _hasPickedAvatar = false;
   bool _submitting = false;
   bool _isLoginMode = false;
   String? _error;
@@ -180,6 +181,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 
   bool get _canContinue => switch (_step) {
+        0 => _hasPickedAvatar,
         1 => _nameController.text.trim().isNotEmpty,
         9 => !_submitting &&
             _emailController.text.contains('@') &&
@@ -189,12 +191,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         _ => true,
       };
 
-  /// Single-choice steps (avatar, daily routine, living situation,
-  /// motivation style, check-in frequency) advance the moment someone
-  /// taps an option — no Continue button, so there's nothing to tap
-  /// through without actually answering. Multi-select and text steps
-  /// keep the button since there's no single "done picking" tap.
-  static const _autoAdvanceSteps = {0, 4, 5, 6, 8};
+  /// Single-choice steps (daily routine, living situation, motivation
+  /// style, check-in frequency) advance the moment someone taps an
+  /// option — no Continue button, so there's nothing to tap through
+  /// without actually answering. The avatar step keeps a Continue
+  /// button (disabled until a style is picked) since it's the very
+  /// first step and an instant jump away could feel like a misfire.
+  /// Multi-select and text steps keep the button too, since there's no
+  /// single "done picking" tap.
+  static const _autoAdvanceSteps = {4, 5, 6, 8};
   bool get _isAutoAdvanceStep => _autoAdvanceSteps.contains(_step) && !_isLoginMode;
 
   @override
@@ -263,7 +268,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _AvatarStep(onSelected: _next),
+                  _AvatarStep(
+                    hasPicked: _hasPickedAvatar,
+                    onSelected: () => setState(() => _hasPickedAvatar = true),
+                  ),
                   _NameStep(controller: _nameController, onChanged: () => setState(() {})),
                   _MultiSelectStep(
                     title: "What are you here to work on?",
@@ -384,7 +392,8 @@ class _StepScaffold extends StatelessWidget {
 }
 
 class _AvatarStep extends ConsumerWidget {
-  const _AvatarStep({required this.onSelected});
+  const _AvatarStep({required this.hasPicked, required this.onSelected});
+  final bool hasPicked;
   final VoidCallback onSelected;
 
   @override
@@ -412,7 +421,7 @@ class _AvatarStep extends ConsumerWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: selected == style ? AppColors.accent : Colors.transparent,
+                        color: hasPicked && selected == style ? AppColors.accent : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -607,7 +616,7 @@ class _ChoiceCard extends StatelessWidget {
   }
 }
 
-class _AuthStep extends StatelessWidget {
+class _AuthStep extends StatefulWidget {
   const _AuthStep({
     required this.emailController,
     required this.passwordController,
@@ -633,6 +642,13 @@ class _AuthStep extends StatelessWidget {
   final VoidCallback onPreviewTap;
 
   @override
+  State<_AuthStep> createState() => _AuthStepState();
+}
+
+class _AuthStepState extends State<_AuthStep> {
+  bool _obscurePassword = true;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fieldDecoration = InputDecoration(
@@ -646,42 +662,49 @@ class _AuthStep extends StatelessWidget {
     );
 
     return _StepScaffold(
-      title: isLoginMode ? 'Welcome back' : 'Create your account',
-      subtitle: isLoginMode ? 'Log in to pick up where you left off.' : 'Save your Mom and pick up where you left off.',
+      title: widget.isLoginMode ? 'Welcome back' : 'Create your account',
+      subtitle: widget.isLoginMode
+          ? 'Log in to pick up where you left off.'
+          : 'Save your Mom and pick up where you left off.',
       child: ListView(
         children: [
           TextField(
-            controller: emailController,
-            onChanged: (_) => onChanged(),
+            controller: widget.emailController,
+            onChanged: (_) => widget.onChanged(),
             keyboardType: TextInputType.emailAddress,
-            enabled: !submitting,
+            enabled: !widget.submitting,
             decoration: fieldDecoration.copyWith(hintText: 'Email'),
           ),
           const SizedBox(height: AppSpacing.sm),
           TextField(
-            controller: passwordController,
-            onChanged: (_) => onChanged(),
-            obscureText: true,
-            enabled: !submitting,
+            controller: widget.passwordController,
+            onChanged: (_) => widget.onChanged(),
+            obscureText: _obscurePassword,
+            enabled: !widget.submitting,
             decoration: fieldDecoration.copyWith(
-              hintText: isLoginMode ? 'Password' : 'Password (min. 8 characters)',
+              hintText: widget.isLoginMode ? 'Password' : 'Password (min. 8 characters)',
+              suffixIcon: IconButton(
+                icon: Icon(_obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
+                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              ),
             ),
           ),
-          if (isLoginMode) ...[
+          if (widget.isLoginMode) ...[
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: submitting ? null : onForgotPasswordTap,
+                onPressed: widget.submitting ? null : widget.onForgotPasswordTap,
                 child: const Text('Forgot password?'),
               ),
             ),
           ] else ...[
             const SizedBox(height: AppSpacing.sm),
-            _PasswordRequirements(password: passwordController.text),
+            _PasswordRequirements(password: widget.passwordController.text),
           ],
-          if (error != null) ...[
+          if (widget.error != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(error!, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.moodDisappointed)),
+            Text(widget.error!, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.moodDisappointed)),
           ],
           const SizedBox(height: AppSpacing.lg),
           Row(
@@ -698,15 +721,15 @@ class _AuthStep extends StatelessWidget {
           _AuthButton(
             icon: LucideIcons.globe,
             label: 'Continue with Google',
-            onTap: submitting ? null : onGoogleTap,
+            onTap: widget.submitting ? null : widget.onGoogleTap,
           ),
           const SizedBox(height: AppSpacing.sm),
           _AuthButton(
             icon: LucideIcons.apple,
             label: 'Continue with Apple',
-            onTap: submitting ? null : onAppleTap,
+            onTap: widget.submitting ? null : widget.onAppleTap,
           ),
-          if (!isLoginMode) ...[
+          if (!widget.isLoginMode) ...[
             const SizedBox(height: AppSpacing.lg),
             Text(
               'By continuing you agree to the Terms of Service and Privacy Policy.',
@@ -716,7 +739,7 @@ class _AuthStep extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             Center(
               child: TextButton(
-                onPressed: submitting ? null : onPreviewTap,
+                onPressed: widget.submitting ? null : widget.onPreviewTap,
                 child: const Text('Just want to look around? Preview without an account'),
               ),
             ),
@@ -734,28 +757,26 @@ class _PasswordRequirements extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final checks = <(String, bool)>[
-      ('At least 8 characters', password.length >= 8),
-      ('A letter and a number', RegExp(r'[A-Za-z]').hasMatch(password) && RegExp(r'[0-9]').hasMatch(password)),
-    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final (label, met) in checks)
+        for (final requirement in PasswordRequirement.values)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Row(
               children: [
                 Icon(
-                  met ? LucideIcons.circleCheck : LucideIcons.circle,
+                  requirement.isMet(password) ? LucideIcons.circleCheck : LucideIcons.circle,
                   size: 14,
-                  color: met ? AppColors.moodHappy : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  color: requirement.isMet(password)
+                      ? AppColors.moodHappy
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.35),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
-                  label,
+                  requirement.label,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: met ? AppColors.moodHappy : theme.textTheme.labelSmall?.color,
+                    color: requirement.isMet(password) ? AppColors.moodHappy : theme.textTheme.labelSmall?.color,
                   ),
                 ),
               ],

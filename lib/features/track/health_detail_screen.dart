@@ -48,7 +48,30 @@ class HealthDetailScreen extends ConsumerWidget {
       ),
       body: goalsAsync.isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
-          : goals == null
+          : goalsAsync.hasError
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.triangleAlert, size: 32, color: AppColors.moodDisappointed),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          friendlyError(goalsAsync.error!),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        PrimaryButton(
+                          label: 'Try again',
+                          onPressed: () => ref.invalidate(healthGoalsProvider),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : goals == null
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.xl),

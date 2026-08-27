@@ -117,7 +117,7 @@ class _TaskRow extends ConsumerWidget {
         !wasDone &&
         updated.done &&
         updated.isHabit &&
-        updated.streakCount > 1 &&
+        updated.streakCount >= 1 &&
         context.mounted) {
       showStreakCelebration(context, taskTitle: updated.title, streakCount: updated.streakCount);
     }

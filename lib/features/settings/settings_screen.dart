@@ -10,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/check_in_frequency.dart';
 import '../../core/models/plan.dart';
 import '../../core/providers/app_state_provider.dart';
-import '../../core/providers/currency_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/purchases_service.dart';
@@ -95,35 +94,6 @@ class SettingsScreen extends ConsumerWidget {
         );
       }
     }
-  }
-
-  Future<void> _pickCurrency(BuildContext context, WidgetRef ref, String current) async {
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Currency'),
-        children: [
-          for (final code in currencySymbols.keys)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, code),
-              child: Row(
-                children: [
-                  Icon(
-                    code == current ? LucideIcons.circleCheck : LucideIcons.circle,
-                    size: 18,
-                    color: code == current ? AppColors.accent : null,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text('$code (${currencySymbols[code]})'),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-    if (selected == null || selected == current) return;
-    ref.read(currencyProvider.notifier).state = selected;
-    await saveCurrency(selected);
   }
 
   Future<void> _pickAppearance(BuildContext context, WidgetRef ref, ThemeMode current) async {
@@ -216,17 +186,54 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
     final controller = TextEditingController();
+    var obscure = true;
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Change password'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            obscureText: true,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(hintText: 'New password (min. 8 characters)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                obscureText: obscure,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'New password',
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
+                    tooltip: obscure ? 'Show password' : 'Hide password',
+                    onPressed: () => setState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (final requirement in PasswordRequirement.values)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        requirement.isMet(controller.text) ? LucideIcons.circleCheck : LucideIcons.circle,
+                        size: 14,
+                        color: requirement.isMet(controller.text)
+                            ? AppColors.moodHappy
+                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        requirement.label,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: requirement.isMet(controller.text) ? AppColors.moodHappy : null,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -301,7 +308,6 @@ class SettingsScreen extends ConsumerWidget {
     final authService = ref.read(authServiceProvider);
     final profile = ref.watch(profileProvider).valueOrNull;
     final checkInFrequency = (profile?['check_in_frequency'] as String?) ?? checkInFrequencyOptions.first;
-    final currency = ref.watch(currencyProvider);
     final themeMode = ref.watch(themeModeProvider);
     final avatarStyle = ref.watch(effectiveMomAvatarProvider);
 
@@ -382,12 +388,6 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: (enabled) => _setPushNudgesEnabled(context, ref, enabled),
           ),
           _Group(title: 'Preferences', rows: [
-            _Row(
-              icon: LucideIcons.badgeDollarSign,
-              label: 'Currency',
-              value: currency,
-              onTap: () => _pickCurrency(context, ref, currency),
-            ),
             _Row(
               icon: LucideIcons.moonStar,
               label: 'Appearance',

@@ -50,7 +50,8 @@ class DashboardScreen extends ConsumerWidget {
     final waterCount = healthTodayAsync.valueOrNull?.waterCount;
     final waterTarget = healthGoalsAsync.valueOrNull?.waterTarget;
 
-    void goToTrackOrUpgrade() => plan.isFull ? context.go('/track') : context.push('/upgrade');
+    void goToFinanceOrUpgrade() => plan.isFull ? context.push('/track/finance') : context.push('/upgrade');
+    void goToHealthOrUpgrade() => plan.isFull ? context.push('/track/health') : context.push('/upgrade');
 
     final today = tasks.take(4).toList();
     final completed = tasks.where((t) => t.done).length;
@@ -107,7 +108,7 @@ class DashboardScreen extends ConsumerWidget {
                     tint: ChipTint.tan,
                     label: 'Spent this month',
                     value: formatMoney(spentCents, ref.watch(currencyProvider)),
-                    onTap: goToTrackOrUpgrade,
+                    onTap: goToFinanceOrUpgrade,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -117,7 +118,7 @@ class DashboardScreen extends ConsumerWidget {
                     tint: ChipTint.sage,
                     label: 'Water',
                     value: waterTarget != null ? '${waterCount ?? 0}/$waterTarget' : 'Log it',
-                    onTap: goToTrackOrUpgrade,
+                    onTap: goToHealthOrUpgrade,
                   ),
                 ),
               ],
@@ -547,7 +548,7 @@ class _DashboardTaskRow extends ConsumerWidget {
                   !wasDone &&
                   updated.done &&
                   updated.isHabit &&
-                  updated.streakCount > 1 &&
+                  updated.streakCount >= 1 &&
                   context.mounted) {
                 showStreakCelebration(context, taskTitle: updated.title, streakCount: updated.streakCount);
               }

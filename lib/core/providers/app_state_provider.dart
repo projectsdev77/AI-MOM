@@ -138,12 +138,12 @@ final momMessageProvider = Provider<String>((ref) {
   final mood = ref.watch(momMoodProvider);
   return switch (mood) {
     MomMood.proud =>
-      'Look at you go. I might actually brag about you at dinner tonight.',
+      "Look at you go. I might actually brag about you to your aunt.",
     MomMood.neutral =>
-      'Not bad so far today. Keep it up and I will stop side-eyeing your to-do list.',
+      "Not bad so far today. Keep going and I'll stop hovering over that to-do list.",
     MomMood.disappointed =>
-      'A few things are slipping. I am not mad, just a little disappointed.',
+      "A few things are slipping. I'm not mad — just a little disappointed.",
     MomMood.veryDisappointed =>
-      'We need to talk. Open your task list before I start calling twice a day.',
+      "We need to talk. Open your task list before I start calling twice a day.",
   };
 });

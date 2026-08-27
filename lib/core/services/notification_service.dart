@@ -17,8 +17,16 @@ class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _ready = false;
 
+  /// `flutter_local_notifications` only has real platform implementations
+  /// for Android/iOS — the app's actual targets (see README). Everywhere
+  /// else (web, and desktop builds used during development on Windows/
+  /// macOS/Linux) this stays a safe no-op rather than throwing, so
+  /// testing on a desktop build can never break something unrelated
+  /// like saving a task.
+  static bool get _supported => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   static Future<void> init() async {
-    if (kIsWeb || _ready) return;
+    if (!_supported || _ready) return;
 
     tz_data.initializeTimeZones();
     try {
@@ -30,22 +38,25 @@ class NotificationService {
       // time until this resolves on a supported platform.
     }
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosInit = DarwinInitializationSettings();
-    await _plugin.initialize(
-      const InitializationSettings(android: androidInit, iOS: iosInit),
-    );
+    try {
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosInit = DarwinInitializationSettings();
+      await _plugin.initialize(
+        const InitializationSettings(android: androidInit, iOS: iosInit),
+      );
 
-    if (!kIsWeb && Platform.isAndroid) {
-      final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      await android?.requestNotificationsPermission();
-      await android?.requestExactAlarmsPermission();
-    } else if (!kIsWeb && Platform.isIOS) {
-      final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
-      await ios?.requestPermissions(alert: true, badge: true, sound: true);
+      if (Platform.isAndroid) {
+        final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+        await android?.requestNotificationsPermission();
+        await android?.requestExactAlarmsPermission();
+      } else if (Platform.isIOS) {
+        final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+        await ios?.requestPermissions(alert: true, badge: true, sound: true);
+      }
+      _ready = true;
+    } catch (_) {
+      // Never let a notifications setup failure take anything else down.
     }
-
-    _ready = true;
   }
 
   /// Task ids are UUIDs, not ints — local notifications need a stable
@@ -64,7 +75,7 @@ class NotificationService {
     required String title,
     required String dueTime,
   }) async {
-    if (kIsWeb || !_ready) return;
+    if (!_supported || !_ready) return;
     final parts = dueTime.split(':');
     if (parts.length < 2) return;
     final hour = int.tryParse(parts[0]);
@@ -75,27 +86,34 @@ class NotificationService {
     var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
     if (scheduled.isBefore(now)) scheduled = scheduled.add(const Duration(days: 1));
 
-    await _plugin.zonedSchedule(
-      _notificationId(taskId),
-      'Mom',
-      "Don't forget: $title",
-      scheduled,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'task_reminders',
-          'Task reminders',
-          channelDescription: "Reminders for tasks you've given a time to",
+    try {
+      await _plugin.zonedSchedule(
+        _notificationId(taskId),
+        'Mom',
+        "Don't forget: $title",
+        scheduled,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'task_reminders',
+            'Task reminders',
+            channelDescription: "Reminders for tasks you've given a time to",
+          ),
+          iOS: DarwinNotificationDetails(),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (_) {
+      // A reminder that fails to schedule should never take the task
+      // save itself down with it.
+    }
   }
 
   static Future<void> cancelTaskReminder(String taskId) async {
-    if (kIsWeb || !_ready) return;
-    await _plugin.cancel(_notificationId(taskId));
+    if (!_supported || !_ready) return;
+    try {
+      await _plugin.cancel(_notificationId(taskId));
+    } catch (_) {}
   }
 
   /// Fires immediately — used to surface a push notification's content
@@ -103,19 +121,21 @@ class NotificationService {
   /// in the foreground, since FCM's own foreground messages don't show
   /// one automatically.
   static Future<void> showNow({required String title, required String body}) async {
-    if (kIsWeb || !_ready) return;
-    await _plugin.show(
-      DateTime.now().millisecondsSinceEpoch & 0x7fffffff,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'mom_nudges',
-          "Mom's check-ins",
-          channelDescription: 'Mom checking in when you have incomplete tasks or habits',
+    if (!_supported || !_ready) return;
+    try {
+      await _plugin.show(
+        DateTime.now().millisecondsSinceEpoch & 0x7fffffff,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'mom_nudges',
+            "Mom's check-ins",
+            channelDescription: 'Mom checking in when you have incomplete tasks or habits',
+          ),
+          iOS: DarwinNotificationDetails(),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-    );
+      );
+    } catch (_) {}
   }
 }
