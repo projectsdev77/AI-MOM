@@ -1,9 +1,10 @@
-// Mom's proactive nudge: called on a schedule by pg_cron (see
-// migrations/0009_nudge_scheduling.sql), never by the app directly.
-// Finds everyone due for a nudge (users_to_nudge in that same
-// migration), sends each a push via Firebase Cloud Messaging's HTTP v1
-// API, and stamps profiles.last_nudged_at so they aren't nudged again
-// too soon.
+// Mom's proactive nudge: called hourly by pg_cron (see
+// migrations/0009_nudge_scheduling.sql and 0010_nudge_frequency.sql),
+// never by the app directly. Finds everyone due for a nudge
+// (users_to_nudge, in that second migration — it honors each user's
+// own check_in_frequency from onboarding), sends each a push via
+// Firebase Cloud Messaging's HTTP v1 API, and stamps
+// profiles.last_nudged_at so they aren't nudged again too soon.
 //
 // FCM v1 needs an OAuth2 access token minted from a Firebase service
 // account — there's no simple static server key anymore (Google
@@ -12,7 +13,6 @@
 // since Deno edge functions don't have one readily available.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const MIN_GAP_HOURS = 4;
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
 const NUDGE_LINES = [
@@ -113,9 +113,7 @@ Deno.serve(async (req) => {
   const serviceAccount: ServiceAccount = JSON.parse(serviceAccountJson);
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceRoleKey);
-  const { data: candidates, error } = await supabase.rpc('users_to_nudge', {
-    min_gap_hours: MIN_GAP_HOURS,
-  });
+  const { data: candidates, error } = await supabase.rpc('users_to_nudge');
   if (error) return new Response(`Query failed: ${error.message}`, { status: 500 });
   if (!candidates || candidates.length === 0) {
     return new Response(JSON.stringify({ sent: 0 }), { headers: { 'Content-Type': 'application/json' } });
