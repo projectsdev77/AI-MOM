@@ -4,6 +4,7 @@ import 'app_colors.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
 import 'mom_tokens.dart';
+import 'mom_typography.dart';
 
 class AppTheme {
   AppTheme._();
@@ -82,18 +83,20 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          foregroundColor: AppColors.textOnAccent,
-          disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.4),
+          backgroundColor: momColors.espresso,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: momColors.espresso.withValues(alpha: 0.4),
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.xl,
-            vertical: AppSpacing.lg,
+            vertical: 17,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
           ),
-          textStyle: textTheme.labelLarge,
+          textStyle: MomText.button(Colors.white),
+        ).copyWith(
+          overlayColor: WidgetStatePropertyAll(momColors.espressoPressed.withValues(alpha: 0.15)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(

@@ -30,6 +30,7 @@ class AppSpacing {
 
   static const double momRadiusTile = 12;
   static const double momRadiusCard = 18;
+  static const double momRadiusPanelSm = 20;
   static const double momRadiusPanel = 24;
   static const double momRadiusSheet = 32;
   static const double momRadiusNav = 28;

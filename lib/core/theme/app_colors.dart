@@ -90,6 +90,10 @@ class AppColors {
 
   static const Color navInactive = Color(0xFFB5A6A0);
 
+  /// Sub-label color on a selected peach option row (onboarding routine
+  /// step) — warmer than the generic inkMuted so it still reads on peach.
+  static const Color selectedRowSub = Color(0xFF8A6A52);
+
   /// Idle (unchecked) completion-check fill/border — 0.75/0.22-alpha
   /// espresso used on both Home and Tasks task rows.
   static Color get checkIdleFill => Colors.white.withValues(alpha: 0.75);
@@ -141,4 +145,5 @@ class AppColors {
   static const Color dangerDark = Color(0xFFE8654A);
   static const Color dangerChevronDark = Color(0xFF8C5C4D);
   static const Color navInactiveDark = Color(0xFF6E6058);
+  static const Color selectedRowSubDark = Color(0xFFD9C2AE);
 }

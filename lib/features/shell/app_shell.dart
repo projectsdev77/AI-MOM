@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../core/theme/app_colors.dart';
+import '../../core/providers/app_state_provider.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/mom_tokens.dart';
+import '../../core/theme/mom_typography.dart';
+import '../../core/widgets/mom_avatar.dart';
 
 /// Bottom-nav shell wrapping the 5 main tabs. Uses a StatefulShellRoute so
 /// each tab keeps its own scroll/navigation state when switching back.
-class AppShell extends StatelessWidget {
+///
+/// The center tab is Mom (was labelled "Chat") — same destination, same
+/// branch index, just rendered as a raised avatar circle instead of an icon.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -14,41 +22,55 @@ class AppShell extends StatelessWidget {
   static const _tabs = [
     (icon: LucideIcons.house, label: 'Home'),
     (icon: LucideIcons.listChecks, label: 'Tasks'),
-    (icon: LucideIcons.messageCircle, label: 'Chat'),
+    (icon: null, label: 'Mom'),
     (icon: LucideIcons.chartNoAxesColumn, label: 'Track'),
     (icon: LucideIcons.settings, label: 'Settings'),
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mom = context.mom;
+    final momAvatar = ref.watch(effectiveMomAvatarProvider);
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          border: Border(
-            top: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
-          ),
+          color: mom.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusNav)),
+          boxShadow: MomElevation.nav,
         ),
         child: SafeArea(
-          child: SizedBox(
-            height: 60,
-            child: Row(
-              children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  Expanded(
-                    child: _NavItem(
-                      icon: _tabs[i].icon,
-                      label: _tabs[i].label,
-                      selected: navigationShell.currentIndex == i,
-                      onTap: () => navigationShell.goBranch(
-                        i,
-                        initialLocation: i == navigationShell.currentIndex,
-                      ),
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+            child: SizedBox(
+              height: 42,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < _tabs.length; i++)
+                    Expanded(
+                      child: i == 2
+                          ? _MomNavItem(
+                              style: momAvatar,
+                              selected: navigationShell.currentIndex == i,
+                              onTap: () => navigationShell.goBranch(
+                                i,
+                                initialLocation: i == navigationShell.currentIndex,
+                              ),
+                            )
+                          : _NavItem(
+                              icon: _tabs[i].icon!,
+                              label: _tabs[i].label,
+                              selected: navigationShell.currentIndex == i,
+                              onTap: () => navigationShell.goBranch(
+                                i,
+                                initialLocation: i == navigationShell.currentIndex,
+                              ),
+                            ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -72,23 +94,87 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = selected ? AppColors.accent : theme.colorScheme.onSurface.withValues(alpha: 0.45);
+    final mom = context.mom;
+    final color = selected ? mom.espresso : mom.navInactive;
     return InkWell(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 22, color: color),
+          Icon(icon, size: 21, color: color),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          Text(label, style: MomText.navLabel(color, active: selected)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The center "Mom" tab — raised 56px peach circle holding Mom's avatar,
+/// replacing the old plain chat-bubble icon.
+class _MomNavItem extends StatelessWidget {
+  const _MomNavItem({required this.style, required this.selected, required this.onTap});
+
+  final MomAvatarStyle style;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final mom = context.mom;
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Transform.translate(
+            offset: const Offset(0, -30),
+            child: Container(
+              width: 56,
+              height: 56,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: mom.promoPeach,
+                border: Border.all(color: mom.surface, width: 3),
+                boxShadow: MomElevation.fab,
+              ),
+              child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
             ),
           ),
+          Transform.translate(
+            offset: const Offset(0, -22),
+            child: Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// The 56px espresso FAB used on Home/Tasks/Financial for the primary
+/// create action. Screens position it themselves via
+/// `Scaffold.floatingActionButton`.
+class MomFab extends StatelessWidget {
+  const MomFab({super.key, required this.onPressed, this.tooltip});
+
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final mom = context.mom;
+    return Container(
+      decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: MomElevation.fab),
+      child: FloatingActionButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        backgroundColor: mom.espresso,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        highlightElevation: 0,
+        shape: const CircleBorder(),
+        child: const Icon(LucideIcons.plus, size: 24),
       ),
     );
   }

@@ -26,6 +26,7 @@ class MomColors extends ThemeExtension<MomColors> {
     required this.danger,
     required this.dangerChevron,
     required this.navInactive,
+    required this.selectedRowSub,
     required this.checkIdleFill,
     required this.checkIdleRing,
     required this.taskTileFill,
@@ -52,6 +53,7 @@ class MomColors extends ThemeExtension<MomColors> {
   final Color danger;
   final Color dangerChevron;
   final Color navInactive;
+  final Color selectedRowSub;
   final Color checkIdleFill;
   final Color checkIdleRing;
   final Color taskTileFill;
@@ -78,6 +80,7 @@ class MomColors extends ThemeExtension<MomColors> {
     danger: AppColors.danger,
     dangerChevron: AppColors.dangerChevron,
     navInactive: AppColors.navInactive,
+    selectedRowSub: AppColors.selectedRowSub,
     checkIdleFill: Color(0xBFFFFFFF),
     checkIdleRing: Color(0x385C3317),
     taskTileFill: Color(0xB3FFFFFF),
@@ -105,6 +108,7 @@ class MomColors extends ThemeExtension<MomColors> {
     danger: AppColors.dangerDark,
     dangerChevron: AppColors.dangerChevronDark,
     navInactive: AppColors.navInactiveDark,
+    selectedRowSub: AppColors.selectedRowSubDark,
     checkIdleFill: Color(0x40FFFFFF),
     checkIdleRing: Color(0x59E0A879),
     taskTileFill: Color(0x26FFFFFF),
@@ -133,6 +137,7 @@ class MomColors extends ThemeExtension<MomColors> {
     Color? danger,
     Color? dangerChevron,
     Color? navInactive,
+    Color? selectedRowSub,
     Color? checkIdleFill,
     Color? checkIdleRing,
     Color? taskTileFill,
@@ -159,6 +164,7 @@ class MomColors extends ThemeExtension<MomColors> {
       danger: danger ?? this.danger,
       dangerChevron: dangerChevron ?? this.dangerChevron,
       navInactive: navInactive ?? this.navInactive,
+      selectedRowSub: selectedRowSub ?? this.selectedRowSub,
       checkIdleFill: checkIdleFill ?? this.checkIdleFill,
       checkIdleRing: checkIdleRing ?? this.checkIdleRing,
       taskTileFill: taskTileFill ?? this.taskTileFill,
@@ -190,6 +196,7 @@ class MomColors extends ThemeExtension<MomColors> {
       danger: Color.lerp(danger, other.danger, t)!,
       dangerChevron: Color.lerp(dangerChevron, other.dangerChevron, t)!,
       navInactive: Color.lerp(navInactive, other.navInactive, t)!,
+      selectedRowSub: Color.lerp(selectedRowSub, other.selectedRowSub, t)!,
       checkIdleFill: Color.lerp(checkIdleFill, other.checkIdleFill, t)!,
       checkIdleRing: Color.lerp(checkIdleRing, other.checkIdleRing, t)!,
       taskTileFill: Color.lerp(taskTileFill, other.taskTileFill, t)!,
