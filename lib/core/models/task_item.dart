@@ -53,7 +53,9 @@ class TaskItem {
     required this.title,
     required this.category,
     required this.categoryLabel,
+    required this.createdAt,
     this.recurrence = RecurrenceType.none,
+    this.recurrenceDays,
     this.streakCount = 0,
     this.streakFreezesAvailable = 0,
     this.done = false,
@@ -69,13 +71,36 @@ class TaskItem {
   /// The text to actually show — a built-in category's pretty label, or
   /// the user's own custom text verbatim.
   final String categoryLabel;
+  final DateTime createdAt;
   final RecurrenceType recurrence;
+
+  /// ISO weekday numbers (1=Mon..7=Sun) — only set for
+  /// [RecurrenceType.custom]. [RecurrenceType.weekly] instead repeats on
+  /// whichever weekday [createdAt] falls on, so it doesn't need this.
+  final List<int>? recurrenceDays;
   final int streakCount;
   final int streakFreezesAvailable;
   final bool done;
   final String? dueTime;
 
   bool get isHabit => recurrence != RecurrenceType.none;
+
+  /// Whether this task belongs on the calendar for [day] — a daily habit
+  /// applies to every day, a weekly one repeats on the weekday it was
+  /// created, a custom one repeats on its own chosen weekdays, and a
+  /// one-off task only ever belongs on the day it was made.
+  bool appliesToDay(DateTime day) {
+    switch (recurrence) {
+      case RecurrenceType.none:
+        return _isSameDate(createdAt, day);
+      case RecurrenceType.daily:
+        return true;
+      case RecurrenceType.weekly:
+        return createdAt.weekday == day.weekday;
+      case RecurrenceType.custom:
+        return recurrenceDays?.contains(day.weekday) ?? false;
+    }
+  }
 
   /// `dueTime` as stored is `HH:mm:ss` (Postgres `time`) — this turns
   /// it into "8:00 AM" for display, without pulling in a Flutter/intl
@@ -98,10 +123,14 @@ class TaskItem {
         title: title,
         category: category,
         categoryLabel: categoryLabel,
+        createdAt: createdAt,
         recurrence: recurrence,
+        recurrenceDays: recurrenceDays,
         streakCount: streakCount,
         streakFreezesAvailable: streakFreezesAvailable,
         done: done ?? this.done,
         dueTime: dueTime,
       );
 }
+
+bool _isSameDate(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;

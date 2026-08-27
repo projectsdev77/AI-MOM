@@ -58,13 +58,34 @@ class TasksRepository {
           title: row['title'] as String,
           category: _parseCategoryKind(row['category'] as String),
           categoryLabel: _categoryLabel(row['category'] as String),
+          createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
           recurrence: RecurrenceType.values.byName(row['recurrence'] as String),
+          recurrenceDays: (row['recurrence_days'] as List?)?.cast<int>(),
           streakCount: row['streak_count'] as int,
           streakFreezesAvailable: row['streak_freezes_available'] as int,
           done: doneIds.contains(row['id']),
           dueTime: row['due_time'] as String?,
         ),
     ];
+  }
+
+  /// Which of [taskIds] have a completion logged on [date] specifically
+  /// — used to show correct done/undone state when browsing a day other
+  /// than today via the calendar, since [fetchTasks]'s `done` field is
+  /// always "done today."
+  Future<Set<String>> fetchCompletionsForDate({
+    required String userId,
+    required DateTime date,
+    required List<String> taskIds,
+  }) async {
+    if (taskIds.isEmpty) return {};
+    final rows = await _client
+        .from('task_completions')
+        .select('task_id')
+        .eq('user_id', userId)
+        .eq('completed_date', _dateOnly(date))
+        .inFilter('task_id', taskIds);
+    return {for (final row in rows) row['task_id'] as String};
   }
 
   /// [category] is the raw value to store — either a built-in
@@ -92,19 +113,25 @@ class TasksRepository {
     return row['id'] as String;
   }
 
-  Future<void> setDone({required String taskId, required String userId, required bool done}) {
+  Future<void> setDone({
+    required String taskId,
+    required String userId,
+    required bool done,
+    DateTime? date,
+  }) {
+    final dateStr = date != null ? _dateOnly(date) : _today();
     if (done) {
       return _client.from('task_completions').insert({
         'task_id': taskId,
         'user_id': userId,
-        'completed_date': _today(),
+        'completed_date': dateStr,
       });
     }
     return _client
         .from('task_completions')
         .delete()
         .eq('task_id', taskId)
-        .eq('completed_date', _today());
+        .eq('completed_date', dateStr);
   }
 
   /// Which dates in [month] have at least one completed task, and what

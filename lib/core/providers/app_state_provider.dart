@@ -82,6 +82,21 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     }
   }
 
+  /// For toggling completion on a day other than today (browsing via
+  /// the Tasks page calendar) — doesn't touch `state`, which only ever
+  /// tracks "done today," just writes the completion row directly. The
+  /// UI invalidates [tasksForSelectedDayProvider] afterward to refetch.
+  Future<bool> setDoneForDay({required String id, required DateTime day, required bool done}) async {
+    final userId = ref.read(authServiceProvider).currentUser?.id;
+    if (userId == null) return false;
+    try {
+      await ref.read(tasksRepositoryProvider).setDone(taskId: id, userId: userId, done: done, date: day);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> archiveTask(String id) async {
     final previous = state;
     state = [for (final t in state) if (t.id != id) t];
@@ -121,6 +136,31 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
 final tasksProvider = NotifierProvider<TasksNotifier, List<TaskItem>>(
   TasksNotifier.new,
 );
+
+DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// The day currently selected on the Tasks page's calendar — defaults
+/// to today.
+final selectedTaskDayProvider = StateProvider<DateTime>((ref) => _dateOnly(DateTime.now()));
+
+/// Every active task that belongs on [selectedTaskDayProvider] (see
+/// [TaskItem.appliesToDay]), with `done` reflecting completion on that
+/// specific day rather than [tasksProvider]'s always-today value.
+final tasksForSelectedDayProvider = FutureProvider.autoDispose<List<TaskItem>>((ref) async {
+  final day = ref.watch(selectedTaskDayProvider);
+  final matching = ref.watch(tasksProvider).where((t) => t.appliesToDay(day)).toList();
+
+  if (_dateOnly(DateTime.now()) == day) return matching;
+
+  final userId = ref.read(authServiceProvider).currentUser?.id;
+  if (userId == null) return matching;
+  final doneIds = await ref.read(tasksRepositoryProvider).fetchCompletionsForDate(
+        userId: userId,
+        date: day,
+        taskIds: [for (final t in matching) t.id],
+      );
+  return [for (final t in matching) t.copyWith(done: doneIds.contains(t.id))];
+});
 
 /// Rolling completion score -> mood, per the planning doc's mood rule.
 final momMoodProvider = Provider<MomMood>((ref) {
