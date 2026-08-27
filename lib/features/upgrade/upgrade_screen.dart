@@ -191,24 +191,32 @@ class _PlansView extends StatelessWidget {
     final packages = offering?.availablePackages ?? const [];
     if (packages.isEmpty) {
       // No RevenueCat project configured yet, or one with no products
-      // in it — real state, not an error, so it says so plainly rather
-      // than pretending a purchase button would do anything.
-      return Padding(
+      // in it — real state, not an error. Shown as a preview of the
+      // real pricing screen (disabled, no invented numbers) rather than
+      // a bare paragraph, so it reads as finished, not missing.
+      return ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Subscriptions aren\'t open yet', style: theme.textTheme.headlineLarge),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              "This build isn't connected to the App Store or Play Store yet, so there's nothing "
-              'real to buy here. Once that\'s set up (see the README), your actual plans will '
-              "show up on this screen. For now, use the \"Debug: preview plan\" switch in Settings "
-              'to try out what Full Mom looks like.',
-              style: theme.textTheme.bodyMedium,
+        children: [
+          Text('Choose your plan', style: theme.textTheme.headlineLarge),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            "Pricing goes live once this app is connected to the App Store and Play Store — "
+            'here\'s a preview of how it\'ll look.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const _MockPlanCard(label: 'Monthly', description: 'Cancel anytime.'),
+          const SizedBox(height: AppSpacing.md),
+          const _MockPlanCard(label: 'Yearly', description: 'Best value — one payment a year.'),
+          const SizedBox(height: AppSpacing.lg),
+          Center(
+            child: Text(
+              'For now, use the "Debug: preview plan" switch in Settings to try out what Full Mom looks like.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelSmall,
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
@@ -266,6 +274,48 @@ class _PlanCard extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.md),
             Text(product.priceString, style: theme.textTheme.titleMedium?.copyWith(color: AppColors.accent)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A preview of what a real plan card will look like once RevenueCat
+/// has actual products configured — deliberately not tappable, and
+/// never shows an invented price (that's set at App Store/Play Store
+/// setup time, not decided here).
+class _MockPlanCard extends StatelessWidget {
+  const _MockPlanCard({required this.label, required this.description});
+  final String label;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Opacity(
+      opacity: 0.55,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: theme.cardTheme.color,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+          border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 2),
+                  Text(description, style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Icon(LucideIcons.lock, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
           ],
         ),
       ),
