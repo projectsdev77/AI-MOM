@@ -49,3 +49,7 @@ app.*.map.json
 
 # Local secrets (dart-define-from-file) — see README.md
 /config/local.json
+
+# Supabase CLI's local machine cache (created by `supabase link`) —
+# per-machine state, not something to share across checkouts
+/supabase/.temp/
