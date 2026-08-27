@@ -25,9 +25,66 @@ class HealthDetailScreen extends ConsumerWidget {
     final todayAsync = ref.watch(healthTodayProvider);
     final activitiesAsync = ref.watch(healthActivitiesProvider);
 
-    final goals = goalsAsync.valueOrNull;
+    // Handle loading state
+    if (goalsAsync.isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Health tracking')),
+        body: const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+      );
+    }
+
+    // Handle error state
+    if (goalsAsync.hasError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Health tracking')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.triangleAlert, size: 32, color: AppColors.moodDisappointed),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  friendlyError(goalsAsync.error!),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                PrimaryButton(
+                  label: 'Try again',
+                  onPressed: () => ref.invalidate(healthGoalsProvider),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final goals = goalsAsync.value;
     final today = todayAsync.valueOrNull ?? const HealthToday(waterCount: 0, workoutMinutes: 0);
     final activities = activitiesAsync.valueOrNull ?? const [];
+
+    // Handle no goals set
+    if (goals == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Health tracking')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Set your goals to start tracking.', style: theme.textTheme.bodyLarge),
+                const SizedBox(height: AppSpacing.md),
+                PrimaryButton(label: 'Set goals', onPressed: () => showHealthGoalsDialog(context, ref)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -39,138 +96,101 @@ class HealthDetailScreen extends ConsumerWidget {
             onPressed: () => showHealthGoalsDialog(
               context,
               ref,
-              waterTarget: goals?.waterTarget ?? 8,
-              sleepTargetHours: goals?.sleepTargetHours ?? 8,
-              workoutTargetMinutes: goals?.workoutTargetMinutes ?? 30,
+              waterTarget: goals.waterTarget,
+              sleepTargetHours: goals.sleepTargetHours,
+              workoutTargetMinutes: goals.workoutTargetMinutes,
             ),
           ),
         ],
       ),
-      body: goalsAsync.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
-          : goalsAsync.hasError
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(LucideIcons.triangleAlert, size: 32, color: AppColors.moodDisappointed),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          friendlyError(goalsAsync.error!),
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        PrimaryButton(
-                          label: 'Try again',
-                          onPressed: () => ref.invalidate(healthGoalsProvider),
-                        ),
-                      ],
-                    ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl),
+        children: [
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _MetricCard(
+                    metric: _Metric.water,
+                    icon: LucideIcons.droplets,
+                    tint: ChipTint.sage,
+                    label: 'Water',
+                    value: '${today.waterCount}',
+                    goal: '${goals.waterTarget}',
+                    onQuickAdd: () async {
+                      final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+                      if (userId == null) return;
+                      try {
+                        await ref
+                            .read(healthRepositoryProvider)
+                            .logToday(userId: userId, waterCount: today.waterCount + 1);
+                        ref.invalidate(healthTodayProvider);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+                        }
+                      }
+                    },
                   ),
-                )
-              : goals == null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Set your goals to start tracking.', style: theme.textTheme.bodyLarge),
-                        const SizedBox(height: AppSpacing.md),
-                        PrimaryButton(label: 'Set goals', onPressed: () => showHealthGoalsDialog(context, ref)),
-                      ],
-                    ),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl),
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _MetricCard(
-                            metric: _Metric.water,
-                            icon: LucideIcons.droplets,
-                            tint: ChipTint.sage,
-                            label: 'Water',
-                            value: '${today.waterCount}',
-                            goal: '${goals.waterTarget}',
-                            onQuickAdd: () async {
-                              final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
-                              if (userId == null) return;
-                              try {
-                                await ref
-                                    .read(healthRepositoryProvider)
-                                    .logToday(userId: userId, waterCount: today.waterCount + 1);
-                                ref.invalidate(healthTodayProvider);
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context)
-                                      .showSnackBar(SnackBar(content: Text(friendlyError(e))));
-                                }
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: _MetricCard(
-                            metric: _Metric.sleep,
-                            icon: LucideIcons.moon,
-                            tint: ChipTint.blush,
-                            label: 'Sleep',
-                            value: today.sleepHours != null ? '${today.sleepHours}h' : '—',
-                            goal: '${goals.sleepTargetHours}h',
-                            onQuickAdd: () => showLogSleepSheet(context, ref),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: _MetricCard(
-                            metric: _Metric.exercise,
-                            icon: LucideIcons.dumbbell,
-                            tint: ChipTint.peach,
-                            label: 'Exercise',
-                            value: '${today.workoutMinutes}m',
-                            goal: '${goals.workoutTargetMinutes}m',
-                            onQuickAdd: () => showLogWorkoutSheet(context, ref),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Staying active', style: theme.textTheme.titleMedium),
-                        IconButton(
-                          icon: const Icon(LucideIcons.plus),
-                          tooltip: 'Add activity',
-                          onPressed: () => showAddHealthActivitySheet(context),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    if (activities.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                        child: Text(
-                          'No custom activities yet — add one like "Tennis" or "Yoga" with its own daily goal.',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      )
-                    else
-                      for (final activity in activities)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: _ActivityRow(activity: activity),
-                        ),
-                  ],
                 ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _MetricCard(
+                    metric: _Metric.sleep,
+                    icon: LucideIcons.moon,
+                    tint: ChipTint.blush,
+                    label: 'Sleep',
+                    value: today.sleepHours != null ? '${today.sleepHours}h' : '—',
+                    goal: '${goals.sleepTargetHours}h',
+                    onQuickAdd: () => showLogSleepSheet(context, ref),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _MetricCard(
+                    metric: _Metric.exercise,
+                    icon: LucideIcons.dumbbell,
+                    tint: ChipTint.peach,
+                    label: 'Exercise',
+                    value: '${today.workoutMinutes}m',
+                    goal: '${goals.workoutTargetMinutes}m',
+                    onQuickAdd: () => showLogWorkoutSheet(context, ref),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Staying active', style: theme.textTheme.titleMedium),
+              IconButton(
+                icon: const Icon(LucideIcons.plus),
+                tooltip: 'Add activity',
+                onPressed: () => showAddHealthActivitySheet(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (activities.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Text(
+                'No custom activities yet — add one like "Tennis" or "Yoga" with its own daily goal.',
+                style: theme.textTheme.bodySmall,
+              ),
+            )
+          else
+            for (final activity in activities)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: _ActivityRow(activity: activity),
+              ),
+        ],
+      ),
     );
   }
 }
