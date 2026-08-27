@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
+import 'mom_tokens.dart';
 
 class AppTheme {
   AppTheme._();
@@ -16,6 +17,7 @@ class AppTheme {
         border: AppColors.borderLight,
         selectedFill: AppColors.selectedFillLight,
         selectedOnFill: AppColors.textOnAccent,
+        momColors: MomColors.light,
       );
 
   static ThemeData dark() => _build(
@@ -27,6 +29,7 @@ class AppTheme {
         border: AppColors.borderDark,
         selectedFill: AppColors.selectedFillDark,
         selectedOnFill: AppColors.selectedOnFillDark,
+        momColors: MomColors.dark,
       );
 
   static ThemeData _build({
@@ -38,6 +41,7 @@ class AppTheme {
     required Color border,
     required Color selectedFill,
     required Color selectedOnFill,
+    required MomColors momColors,
   }) {
     final textTheme = AppTypography.textTheme(textPrimary, textSecondary);
 
@@ -103,6 +107,7 @@ class AppTheme {
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
       splashColor: Colors.transparent,
+      extensions: [momColors],
     );
   }
 }

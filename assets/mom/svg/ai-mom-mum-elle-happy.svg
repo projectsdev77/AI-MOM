@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="AI MOM avatar">
+          <defs><clipPath id="mclip4"><circle cx="160" cy="160" r="160"></circle></clipPath></defs>
+          <g clip-path="url(#mclip4)">
+            <rect x="0" y="0" width="320" height="320" fill="#F3D9D6"></rect>
+            <path d="M72 200 C58 106 100 50 160 50 C220 50 262 106 248 200 C244 232 238 250 230 258 C222 234 216 214 214 196 L106 196 C104 214 98 234 90 258 C82 250 76 232 72 200 Z" fill="#F0EDE6"></path>
+            <path d="M140 184 h40 v38 h-40 z" fill="#E4AE98"></path>
+            <path d="M28 320 C34 256 92 224 160 224 C228 224 286 256 292 320 Z" fill="#7E4257"></path>
+            <path d="M130 216 C140 210 180 210 190 216 C192 226 188 234 160 234 C132 234 128 226 130 216 Z" fill="#8E4E63"></path>
+            <ellipse cx="104" cy="156" rx="10" ry="14" fill="#F7D0BC"></ellipse>
+            <ellipse cx="216" cy="156" rx="10" ry="14" fill="#F7D0BC"></ellipse>
+            <path d="M102 136 C102 94 128 72 160 72 C192 72 218 94 218 136 C218 178 192 206 160 206 C128 206 102 178 102 136 Z" fill="#F7D0BC"></path>
+            <path d="M98 132 C100 86 126 62 160 62 C196 62 222 88 222 132 C206 106 184 96 158 99 C130 102 110 114 98 132 Z" fill="#F0EDE6"></path>
+            <path d="M124 127 C132 118 146 118 152 125" fill="none" stroke="#9B8078" stroke-width="4" stroke-linecap="round"></path><path d="M196 127 C188 118 174 118 168 125" fill="none" stroke="#9B8078" stroke-width="4" stroke-linecap="round"></path><path d="M129 151 C135 142 145 142 151 151" fill="none" stroke="#3A2B2B" stroke-width="3.5" stroke-linecap="round"></path><path d="M169 151 C175 142 185 142 191 151" fill="none" stroke="#3A2B2B" stroke-width="3.5" stroke-linecap="round"></path><path d="M160 152 C155 166 152 170 158 172" fill="none" stroke="#E4AE98" stroke-width="2.5" stroke-linecap="round"></path><path d="M140 178 C147 197 173 197 180 178 Z" fill="#FBF6EF"></path><path d="M140 178 C147 197 173 197 180 178" fill="none" stroke="#C4685C" stroke-width="3.5" stroke-linejoin="round"></path><path d="M140 178 h40" fill="none" stroke="#C4685C" stroke-width="3.5" stroke-linecap="round"></path><circle cx="122" cy="169" r="11" fill="#E8836B" opacity="0.28"></circle><circle cx="198" cy="169" r="11" fill="#E8836B" opacity="0.28"></circle><path d="M116 141 l-11 -4 M116 151 l-12 1 M204 141 l11 -4 M204 151 l12 1" fill="none" stroke="#E4AE98" stroke-width="1.8" stroke-linecap="round" opacity="0.6"></path><path d="M131 193 C139 199 151 200 159 198 M189 193 C181 199 169 200 161 198" fill="none" stroke="#E4AE98" stroke-width="1.8" stroke-linecap="round" opacity="0.7"></path></g></svg>

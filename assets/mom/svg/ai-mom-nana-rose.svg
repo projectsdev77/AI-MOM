@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="AI MOM avatar">
+          <defs><clipPath id="mclip1"><circle cx="160" cy="160" r="160"></circle></clipPath></defs>
+          <g clip-path="url(#mclip1)">
+            <rect x="0" y="0" width="320" height="320" fill="#FBE3D6"></rect>
+            <path d="M78 168 C70 92 108 52 160 52 C212 52 250 92 242 168 C240 200 236 214 230 220 L90 220 C84 214 80 200 78 168 Z" fill="#C9CDD2"></path>
+            <path d="M140 184 h40 v38 h-40 z" fill="#E8A98A"></path>
+            <path d="M28 320 C34 256 92 224 160 224 C228 224 286 256 292 320 Z" fill="#FFF3E4"></path>
+            <path d="M28 320 C34 256 92 224 160 224 L134 320 Z" fill="#F2795B"></path>
+            <path d="M292 320 C286 256 228 224 160 224 L186 320 Z" fill="#F2795B"></path>
+            <path d="M134 320 L160 224 L186 320" fill="none" stroke="#D95E42" stroke-width="2.5"></path>
+            <ellipse cx="104" cy="156" rx="10" ry="14" fill="#F6C6A8"></ellipse>
+            <ellipse cx="216" cy="156" rx="10" ry="14" fill="#F6C6A8"></ellipse>
+            <path d="M102 138 C102 96 128 74 160 74 C192 74 218 96 218 138 C218 178 192 206 160 206 C128 206 102 178 102 138 Z" fill="#F6C6A8"></path>
+            <path d="M100 134 C100 88 128 64 160 64 C196 64 221 88 220 132 C204 112 186 102 158 105 C134 108 112 118 100 134 Z" fill="#C9CDD2"></path>
+            <path d="M112 126 C122 118 134 114 144 114" fill="none" stroke="#E8A98A" stroke-width="2" stroke-linecap="round" opacity="0.5"></path>
+            <path d="M126 132 C132 126 144 125 150 129" fill="none" stroke="#8B6A62" stroke-width="3.5" stroke-linecap="round"></path>
+            <path d="M194 132 C188 126 176 125 170 129" fill="none" stroke="#8B6A62" stroke-width="3.5" stroke-linecap="round"></path>
+            <ellipse cx="138" cy="148" rx="5" ry="6" fill="#3A2B2B"></ellipse>
+            <ellipse cx="182" cy="148" rx="5" ry="6" fill="#3A2B2B"></ellipse>
+            <circle cx="138" cy="148" r="18" fill="none" stroke="#6B5A57" stroke-width="3"></circle>
+            <circle cx="182" cy="148" r="18" fill="none" stroke="#6B5A57" stroke-width="3"></circle>
+            <path d="M156 148 h8 M120 146 l-14 -4 M200 146 l14 -4" fill="none" stroke="#6B5A57" stroke-width="3" stroke-linecap="round"></path>
+            <path d="M160 152 C155 166 152 170 158 172" fill="none" stroke="#DE9375" stroke-width="2.5" stroke-linecap="round"></path>
+            <path d="M148 182 C154 191 168 191 174 182 C168 187 154 187 148 182 Z" fill="#D9756A"></path>
+            <circle cx="124" cy="170" r="9" fill="#E8836B" opacity="0.3"></circle>
+            <circle cx="196" cy="170" r="9" fill="#E8836B" opacity="0.3"></circle>
+            <path d="M132 194 C140 199 152 200 160 199 M188 194 C180 199 172 200 165 199" fill="none" stroke="#E8A98A" stroke-width="1.8" stroke-linecap="round" opacity="0.7"></path>
+          </g>
+        </svg>

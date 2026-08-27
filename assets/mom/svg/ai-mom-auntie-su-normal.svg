@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="AI MOM avatar">
+          <defs><clipPath id="mclip3"><circle cx="160" cy="160" r="160"></circle></clipPath></defs>
+          <g clip-path="url(#mclip3)">
+            <rect x="0" y="0" width="320" height="320" fill="#E7DCC2"></rect>
+            <circle cx="182" cy="52" r="27" fill="#F6F1E7"></circle>
+            <circle cx="162" cy="40" r="19" fill="#F6F1E7"></circle>
+            <path d="M84 166 C78 94 112 58 160 58 C208 58 242 94 236 166 C234 194 230 208 224 214 L96 214 C90 208 86 194 84 166 Z" fill="#F6F1E7"></path>
+            <path d="M140 184 h40 v38 h-40 z" fill="#D08B62"></path>
+            <path d="M28 320 C34 256 92 224 160 224 C228 224 286 256 292 320 Z" fill="#E0566E"></path>
+            <path d="M28 320 C34 256 92 224 160 224 L132 320 Z" fill="#F7DE8B"></path>
+            <path d="M292 320 C286 256 228 224 160 224 L188 320 Z" fill="#F7DE8B"></path>
+            <path d="M132 320 L160 224 L188 320" fill="none" stroke="#E3C46A" stroke-width="2.5"></path>
+            <g fill="#3A2B2B"><circle cx="146" cy="238" r="5"></circle><circle cx="160" cy="242" r="5"></circle><circle cx="174" cy="238" r="5"></circle><circle cx="136" cy="230" r="4.5"></circle><circle cx="184" cy="230" r="4.5"></circle></g>
+            <ellipse cx="104" cy="156" rx="10" ry="14" fill="#E8A87C"></ellipse>
+            <ellipse cx="216" cy="156" rx="10" ry="14" fill="#E8A87C"></ellipse>
+            <path d="M102 138 C102 96 128 74 160 74 C192 74 218 96 218 138 C218 178 192 206 160 206 C128 206 102 178 102 138 Z" fill="#E8A87C"></path>
+            <path d="M100 132 C104 90 128 66 160 66 C194 66 218 90 220 130 C200 112 182 104 156 106 C130 108 110 118 100 132 Z" fill="#F6F1E7"></path>
+            <path d="M126 132 C132 126 145 125 151 129" fill="none" stroke="#B98A63" stroke-width="4" stroke-linecap="round"></path><path d="M194 132 C188 126 175 125 169 129" fill="none" stroke="#B98A63" stroke-width="4" stroke-linecap="round"></path><ellipse cx="137" cy="147" rx="5.5" ry="6.5" fill="#5A3A26"></ellipse><ellipse cx="183" cy="147" rx="5.5" ry="6.5" fill="#5A3A26"></ellipse><path d="M160 152 C155 166 152 170 158 172" fill="none" stroke="#C97F55" stroke-width="2.5" stroke-linecap="round"></path><path d="M148 182 C154 191 168 191 174 182 C168 187 154 187 148 182 Z" fill="#C4685C"></path><circle cx="122" cy="169" r="9" fill="#D9755E" opacity="0.3"></circle><circle cx="198" cy="169" r="9" fill="#D9755E" opacity="0.3"></circle><path d="M116 141 l-11 -4 M116 151 l-12 1 M204 141 l11 -4 M204 151 l12 1" fill="none" stroke="#C97F55" stroke-width="1.8" stroke-linecap="round" opacity="0.6"></path><path d="M131 193 C139 199 151 200 159 198 M189 193 C181 199 169 200 161 198" fill="none" stroke="#C97F55" stroke-width="1.8" stroke-linecap="round" opacity="0.7"></path></g></svg>
