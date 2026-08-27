@@ -90,6 +90,10 @@ class AppColors {
 
   static const Color navInactive = Color(0xFFB5A6A0);
 
+  /// Neutral placeholder tile behind a locked (Basic-plan) feature's icon
+  /// — replaces the tint rotation there since the content isn't real yet.
+  static const Color neutralTile = Color(0xFFEFE4E1);
+
   /// Sub-label color on a selected peach option row (onboarding routine
   /// step) — warmer than the generic inkMuted so it still reads on peach.
   static const Color selectedRowSub = Color(0xFF8A6A52);
@@ -146,4 +150,5 @@ class AppColors {
   static const Color dangerChevronDark = Color(0xFF8C5C4D);
   static const Color navInactiveDark = Color(0xFF6E6058);
   static const Color selectedRowSubDark = Color(0xFFD9C2AE);
+  static const Color neutralTileDark = Color(0xFF362E28);
 }

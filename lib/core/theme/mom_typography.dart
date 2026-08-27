@@ -22,6 +22,10 @@ class MomText {
   /// Screen title / Home greeting — 26/800, -0.02em.
   static TextStyle screenTitle(Color color) => _jakarta(26, FontWeight.w800, color, letterSpacing: -0.52, height: 1.15);
 
+  /// Large panel headline (e.g. the over-/under-budget figure on the
+  /// Financial summary panel) — 30/800, -0.02em.
+  static TextStyle bigValue(Color color) => _jakarta(30, FontWeight.w800, color, letterSpacing: -0.6, height: 1.15);
+
   /// Card title — 17/700.
   static TextStyle cardTitle(Color color) => _jakarta(17, FontWeight.w700, color);
 

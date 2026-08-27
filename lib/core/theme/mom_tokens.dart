@@ -27,6 +27,7 @@ class MomColors extends ThemeExtension<MomColors> {
     required this.dangerChevron,
     required this.navInactive,
     required this.selectedRowSub,
+    required this.neutralTile,
     required this.checkIdleFill,
     required this.checkIdleRing,
     required this.taskTileFill,
@@ -54,6 +55,7 @@ class MomColors extends ThemeExtension<MomColors> {
   final Color dangerChevron;
   final Color navInactive;
   final Color selectedRowSub;
+  final Color neutralTile;
   final Color checkIdleFill;
   final Color checkIdleRing;
   final Color taskTileFill;
@@ -81,6 +83,7 @@ class MomColors extends ThemeExtension<MomColors> {
     dangerChevron: AppColors.dangerChevron,
     navInactive: AppColors.navInactive,
     selectedRowSub: AppColors.selectedRowSub,
+    neutralTile: AppColors.neutralTile,
     checkIdleFill: Color(0xBFFFFFFF),
     checkIdleRing: Color(0x385C3317),
     taskTileFill: Color(0xB3FFFFFF),
@@ -109,6 +112,7 @@ class MomColors extends ThemeExtension<MomColors> {
     dangerChevron: AppColors.dangerChevronDark,
     navInactive: AppColors.navInactiveDark,
     selectedRowSub: AppColors.selectedRowSubDark,
+    neutralTile: AppColors.neutralTileDark,
     checkIdleFill: Color(0x40FFFFFF),
     checkIdleRing: Color(0x59E0A879),
     taskTileFill: Color(0x26FFFFFF),
@@ -138,6 +142,7 @@ class MomColors extends ThemeExtension<MomColors> {
     Color? dangerChevron,
     Color? navInactive,
     Color? selectedRowSub,
+    Color? neutralTile,
     Color? checkIdleFill,
     Color? checkIdleRing,
     Color? taskTileFill,
@@ -165,6 +170,7 @@ class MomColors extends ThemeExtension<MomColors> {
       dangerChevron: dangerChevron ?? this.dangerChevron,
       navInactive: navInactive ?? this.navInactive,
       selectedRowSub: selectedRowSub ?? this.selectedRowSub,
+      neutralTile: neutralTile ?? this.neutralTile,
       checkIdleFill: checkIdleFill ?? this.checkIdleFill,
       checkIdleRing: checkIdleRing ?? this.checkIdleRing,
       taskTileFill: taskTileFill ?? this.taskTileFill,
@@ -197,6 +203,7 @@ class MomColors extends ThemeExtension<MomColors> {
       dangerChevron: Color.lerp(dangerChevron, other.dangerChevron, t)!,
       navInactive: Color.lerp(navInactive, other.navInactive, t)!,
       selectedRowSub: Color.lerp(selectedRowSub, other.selectedRowSub, t)!,
+      neutralTile: Color.lerp(neutralTile, other.neutralTile, t)!,
       checkIdleFill: Color.lerp(checkIdleFill, other.checkIdleFill, t)!,
       checkIdleRing: Color.lerp(checkIdleRing, other.checkIdleRing, t)!,
       taskTileFill: Color.lerp(taskTileFill, other.taskTileFill, t)!,
