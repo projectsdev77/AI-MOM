@@ -10,13 +10,12 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/currency_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../core/theme/mom_mood.dart';
-import '../../core/widgets/category_chip.dart';
+import '../../core/theme/mom_tokens.dart';
+import '../../core/theme/mom_typography.dart';
 import '../../core/widgets/mom_avatar.dart';
-import '../../core/widgets/section_header.dart';
-import '../../core/widgets/streak_check.dart';
+import '../../core/widgets/mom_components.dart';
+import '../shell/app_shell.dart';
 import '../tasks/add_task_sheet.dart';
 import '../tasks/streak_celebration.dart';
 import '../track/finance_widgets.dart';
@@ -31,9 +30,19 @@ class DashboardScreen extends ConsumerWidget {
     return 'Evening';
   }
 
+  void _quickAddTask(BuildContext context, WidgetRef ref, List<TaskItem> tasks, AppPlan plan) {
+    if (!plan.isFull && tasks.length >= plan.maxActiveTasks) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Basic Mom covers up to ${plan.maxActiveTasks} active items — upgrade for unlimited.')),
+      );
+      return;
+    }
+    showAddTaskSheet(context);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     final profile = ref.watch(profileProvider).valueOrNull;
     final profileName = (profile?['name'] as String?)?.trim();
     final name = (profileName != null && profileName.isNotEmpty) ? profileName : 'there';
@@ -60,15 +69,20 @@ class DashboardScreen extends ConsumerWidget {
 
     final today = tasks.take(4).toList();
     final completed = tasks.where((t) => t.done).length;
+    final allDoneToday = tasks.isNotEmpty && completed == tasks.length;
 
     return Scaffold(
+      floatingActionButton: MomFab(
+        tooltip: 'Quick add task',
+        onPressed: () => _quickAddTask(context, ref, tasks, plan),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
+            AppSpacing.momGutter,
             AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.xxl,
+            AppSpacing.momGutter,
+            96,
           ),
           children: [
             Row(
@@ -78,71 +92,89 @@ class DashboardScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${_greeting()}, $name', style: theme.textTheme.headlineLarge),
+                      Text('${_greeting()}, $name', style: MomText.screenTitle(mom.ink)),
                       const SizedBox(height: 2),
-                      Text(
-                        DateFormat('EEEE, MMMM d').format(DateTime.now()),
-                        style: theme.textTheme.titleSmall,
-                      ),
+                      Text(DateFormat('EEEE, MMMM d').format(DateTime.now()), style: MomText.body(mom.inkSoft)),
                     ],
                   ),
                 ),
-                MomAvatar(style: momAvatar, mood: mood, size: 52),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2.5),
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: mom.surface),
+                      child: MomAvatar(style: momAvatar, mood: mood, showMoodBadge: false, size: 49),
+                    ),
+                    Positioned(
+                      right: -1,
+                      bottom: -1,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: mom.doneOrange,
+                          border: Border.all(color: mom.shell, width: 2.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(height: AppSpacing.xl),
-            _MomMessageCard(mood: mood, message: message),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.momSectionGap),
+            MomMessageCard(avatarStyle: momAvatar, expression: mood.expression, eyebrow: mood.label, message: message),
+            const SizedBox(height: AppSpacing.momSectionGap),
+            _WeekStripCard(allDoneToday: allDoneToday),
+            const SizedBox(height: AppSpacing.momSectionGap),
             if (!plan.isFull)
               Row(
                 children: [
                   Expanded(
-                    child: _StatTile(
+                    child: MomStatCard(
                       icon: LucideIcons.flame,
-                      tint: ChipTint.peach,
-                      label: 'Tasks today',
+                      tintIndex: 0,
                       value: '$completed/${tasks.length}',
-                      onTap: () => context.go('/tasks'),
+                      caption: 'Tasks today',
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
+                  const SizedBox(width: AppSpacing.momRowGap),
                   Expanded(
-                    child: _StatTile(
-                      icon: LucideIcons.wallet,
-                      tint: ChipTint.tan,
-                      label: 'Spent this month',
-                      value: formatMoney(spentCents, ref.watch(currencyProvider)),
+                    child: GestureDetector(
                       onTap: goToFinanceOrUpgrade,
+                      child: MomStatCard(
+                        icon: LucideIcons.wallet,
+                        tintIndex: 1,
+                        value: formatMoney(spentCents, ref.watch(currencyProvider)),
+                        caption: 'Spent this month',
+                      ),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
+                  const SizedBox(width: AppSpacing.momRowGap),
                   Expanded(
-                    child: _StatTile(
-                      icon: LucideIcons.droplets,
-                      tint: ChipTint.sage,
-                      label: 'Water',
-                      value: waterTarget != null ? '${waterCount ?? 0}/$waterTarget' : 'Log it',
+                    child: GestureDetector(
                       onTap: goToHealthOrUpgrade,
+                      child: MomStatCard(
+                        icon: LucideIcons.droplets,
+                        tintIndex: 4,
+                        value: waterTarget != null ? '${waterCount ?? 0}/$waterTarget' : 'Log it',
+                        caption: 'Water',
+                      ),
                     ),
                   ),
                 ],
               )
             else ...[
-              _StatTile(
-                icon: LucideIcons.flame,
-                tint: ChipTint.peach,
-                label: 'Tasks today',
-                value: '$completed/${tasks.length}',
-                onTap: () => context.go('/tasks'),
-              ),
-              const SizedBox(height: AppSpacing.md),
+              MomStatCard(icon: LucideIcons.flame, tintIndex: 0, value: '$completed/${tasks.length}', caption: 'Tasks today'),
+              const SizedBox(height: AppSpacing.momRowGap),
               _FinanceSummaryDashboardCard(
                 spentCents: spentCents,
                 budgetCents: budgetCents,
                 currency: ref.watch(currencyProvider),
                 onTap: goToFinanceOrUpgrade,
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.momRowGap),
               _HealthSummaryDashboardCard(
                 waterCount: waterCount,
                 waterTarget: waterTarget,
@@ -152,37 +184,35 @@ class DashboardScreen extends ConsumerWidget {
                 onTap: goToHealthOrUpgrade,
               ),
             ],
-            const SizedBox(height: AppSpacing.xl),
-            SectionHeader(
-              title: "Today's tasks",
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(LucideIcons.plus),
-                    tooltip: 'Quick add task',
-                    onPressed: () {
-                      if (!plan.isFull && tasks.length >= plan.maxActiveTasks) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Basic Mom covers up to ${plan.maxActiveTasks} active items — upgrade for unlimited.')),
-                        );
-                        return;
-                      }
-                      showAddTaskSheet(context);
-                    },
-                  ),
-                  TextButton(
-                    onPressed: () => context.go('/tasks'),
-                    child: const Text('See all'),
-                  ),
-                ],
-              ),
+            const SizedBox(height: AppSpacing.momSectionGap),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Today's tasks", style: MomText.section(mom.ink)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _quickAddTask(context, ref, tasks, plan),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(LucideIcons.plus, size: 18, color: mom.espresso),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => context.go('/tasks'),
+                      child: Text('See all', style: MomText.control(mom.espresso)),
+                    ),
+                  ],
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.sm),
-            for (final task in today)
+            for (var i = 0; i < today.length; i++)
               Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _DashboardTaskRow(task: task),
+                padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
+                child: _DashboardTaskRow(task: today[i], tintIndex: i),
               ),
           ],
         ),
@@ -191,82 +221,102 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _MomMessageCard extends StatelessWidget {
-  const _MomMessageCard({required this.mood, required this.message});
-  final MomMood mood;
-  final String message;
+/// Real dates, honestly limited: only today's completion is derived from
+/// live data (all of today's tasks done), so only today ever shows a
+/// dot. Other days show no dot rather than fabricating history the app
+/// doesn't track per-day yet.
+class _WeekStripCard extends StatefulWidget {
+  const _WeekStripCard({required this.allDoneToday});
+  final bool allDoneToday;
+
+  @override
+  State<_WeekStripCard> createState() => _WeekStripCardState();
+}
+
+class _WeekStripCardState extends State<_WeekStripCard> {
+  bool _expanded = true;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final days = List.generate(7, (i) => monday.add(Duration(days: i)));
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-        border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
+        color: mom.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.momRadiusPanelSm),
+        boxShadow: MomElevation.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: mood.color),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Icon(
+                _expanded ? LucideIcons.chevronDown : LucideIcons.chevronUp,
+                size: 18,
+                color: mom.inkMuted,
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(mood.label, style: theme.textTheme.labelSmall?.copyWith(color: mood.color)),
-            ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(message, style: theme.textTheme.bodyLarge),
+          if (_expanded) ...[
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                for (final day in days)
+                  _WeekDayColumn(
+                    day: day,
+                    isToday: DateUtils.isSameDay(day, now),
+                    fullyDone: DateUtils.isSameDay(day, now) && widget.allDoneToday,
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.tint,
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final ChipTint tint;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
+class _WeekDayColumn extends StatelessWidget {
+  const _WeekDayColumn({required this.day, required this.isToday, required this.fullyDone});
+  final DateTime day;
+  final bool isToday;
+  final bool fullyDone;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-          border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
+    final mom = context.mom;
+    return Column(
+      children: [
+        Text(DateFormat('E').format(day).substring(0, 1), style: MomText.meta(isToday ? mom.ink : mom.inkMuted, size: 11)),
+        const SizedBox(height: 6),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: isToday ? mom.ink : Colors.transparent),
+          alignment: Alignment.center,
+          child: Text(
+            '${day.day}',
+            style: MomText.rowLabel(isToday ? Colors.white : mom.inkSoft, selected: isToday),
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CategoryIconBadge(icon: icon, tint: tint, size: 32),
-            const SizedBox(height: AppSpacing.sm),
-            Text(value, style: theme.textTheme.titleMedium),
-            Text(label, style: theme.textTheme.labelSmall),
-          ],
+        const SizedBox(height: 5),
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: fullyDone ? mom.doneOrange : (isToday ? mom.fieldBorder : Colors.transparent),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -289,62 +339,65 @@ class _FinanceSummaryDashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     final ratio = budgetCents != null && budgetCents! > 0 ? (spentCents / budgetCents!).clamp(0.0, 1.0) : null;
     final remaining = budgetCents != null ? budgetCents! - spentCents : null;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+      borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-          border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
+          color: mom.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+          boxShadow: MomElevation.card,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CategoryIconBadge(icon: LucideIcons.wallet, tint: ChipTint.tan, size: 32),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(color: mom.tints[1], borderRadius: BorderRadius.circular(AppSpacing.momRadiusTile - 1)),
+              child: Icon(LucideIcons.wallet, size: 17, color: mom.tintIcons[1]),
+            ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Spent this month', style: theme.textTheme.labelSmall),
+                  Text('Spent this month', style: MomText.meta(mom.inkMuted)),
                   const SizedBox(height: 2),
-                  Text(formatMoney(spentCents, currency), style: theme.textTheme.titleMedium),
+                  Text(formatMoney(spentCents, currency), style: MomText.statValue(mom.ink)),
                   if (remaining != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       remaining < 0
                           ? '${formatMoney(-remaining, currency)} over budget'
                           : '${formatMoney(remaining, currency)} left',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: remaining < 0 ? AppColors.moodDisappointed : null,
-                      ),
+                      style: MomText.meta(remaining < 0 ? mom.danger : mom.inkMuted),
                     ),
                     const SizedBox(height: 6),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                      borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
                       child: LinearProgressIndicator(
                         value: ratio,
                         minHeight: 5,
-                        backgroundColor: AppColors.chipPeach,
-                        valueColor: AlwaysStoppedAnimation(
-                          (ratio ?? 0) >= 1 ? AppColors.moodDisappointed : AppColors.accent,
-                        ),
+                        backgroundColor: mom.peachOnPeach.withValues(alpha: 0.4),
+                        valueColor: AlwaysStoppedAnimation(mom.doneOrange),
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(LucideIcons.plus),
-              tooltip: 'Add expense',
-              onPressed: () => showAddExpenseSheet(context),
+            GestureDetector(
+              onTap: () => showAddExpenseSheet(context),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(LucideIcons.plus, size: 18, color: mom.espresso),
+              ),
             ),
           ],
         ),
@@ -382,7 +435,7 @@ class _HealthSummaryDashboardCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     final parts = <String>[
       if (waterTarget != null) 'Water ${waterCount ?? 0}/$waterTarget',
       if (sleepHours != null) 'Sleep ${sleepHours!.toStringAsFixed(1)}h',
@@ -391,36 +444,43 @@ class _HealthSummaryDashboardCard extends ConsumerWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+      borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-          border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
+          color: mom.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+          boxShadow: MomElevation.card,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CategoryIconBadge(icon: LucideIcons.droplets, tint: ChipTint.sage, size: 32),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(color: mom.tints[4], borderRadius: BorderRadius.circular(AppSpacing.momRadiusTile - 1)),
+              child: Icon(LucideIcons.droplets, size: 17, color: mom.tintIcons[4]),
+            ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Health today', style: theme.textTheme.labelSmall),
+                  Text('Health today', style: MomText.meta(mom.inkMuted)),
                   const SizedBox(height: 2),
                   Text(
                     parts.isEmpty ? 'Set goals to start tracking' : parts.join('  •  '),
-                    style: theme.textTheme.titleMedium,
+                    style: MomText.cardTitle(mom.ink),
                   ),
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(LucideIcons.plus),
-              tooltip: 'Log a glass of water',
-              onPressed: () => _logWater(ref),
+            GestureDetector(
+              onTap: () => _logWater(ref),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(LucideIcons.plus, size: 18, color: mom.espresso),
+              ),
             ),
           ],
         ),
@@ -430,49 +490,31 @@ class _HealthSummaryDashboardCard extends ConsumerWidget {
 }
 
 class _DashboardTaskRow extends ConsumerWidget {
-  const _DashboardTaskRow({required this.task});
+  const _DashboardTaskRow({required this.task, required this.tintIndex});
   final TaskItem task;
+  final int tintIndex;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-        border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          CategoryIconBadge(icon: task.category.icon, tint: task.category.tint, size: 36),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              task.title,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                decoration: task.done ? TextDecoration.lineThrough : null,
-              ),
-            ),
-          ),
-          StreakCheck(
-            done: task.done,
-            size: 24,
-            onTap: () async {
-              final wasDone = task.done;
-              final updated = await ref.read(tasksProvider.notifier).toggleDone(task.id);
-              if (updated != null &&
-                  !wasDone &&
-                  updated.done &&
-                  updated.isHabit &&
-                  updated.streakCount >= 1 &&
-                  context.mounted) {
-                showStreakCelebration(context, taskTitle: updated.title, streakCount: updated.streakCount);
-              }
-            },
-          ),
-        ],
-      ),
+    return MomTaskRow(
+      icon: task.category.icon,
+      tintIndex: tintIndex,
+      metaLabel: task.categoryLabel,
+      title: task.title,
+      sub: task.dueTimeLabel ?? (task.isHabit ? '${task.streakCount} day streak' : null),
+      done: task.done,
+      onToggle: () async {
+        final wasDone = task.done;
+        final updated = await ref.read(tasksProvider.notifier).toggleDone(task.id);
+        if (updated != null &&
+            !wasDone &&
+            updated.done &&
+            updated.isHabit &&
+            updated.streakCount >= 1 &&
+            context.mounted) {
+          showStreakCelebration(context, taskTitle: updated.title, streakCount: updated.streakCount);
+        }
+      },
     );
   }
 }
