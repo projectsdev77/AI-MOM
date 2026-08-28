@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/config/config_error_app.dart';
 import 'core/config/env.dart';
+import 'core/providers/account_reset.dart';
 import 'core/providers/currency_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/routing/password_recovery_flag.dart';
@@ -42,12 +43,17 @@ void main() async {
   final savedCurrency = await loadSavedCurrency();
   final savedThemeMode = await loadSavedThemeMode();
 
+  final container = ProviderContainer(
+    overrides: [
+      currencyProvider.overrideWith((ref) => savedCurrency),
+      themeModeProvider.overrideWith((ref) => savedThemeMode),
+    ],
+  );
+  listenForAccountChanges(container);
+
   runApp(
-    ProviderScope(
-      overrides: [
-        currencyProvider.overrideWith((ref) => savedCurrency),
-        themeModeProvider.overrideWith((ref) => savedThemeMode),
-      ],
+    UncontrolledProviderScope(
+      container: container,
       child: const AiMomApp(),
     ),
   );

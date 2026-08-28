@@ -32,8 +32,34 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final mom = context.mom;
     final momAvatar = ref.watch(effectiveMomAvatarProvider);
+    void goToMom() => navigationShell.goBranch(2, initialLocation: 2 == navigationShell.currentIndex);
     return Scaffold(
-      body: navigationShell,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          navigationShell,
+          // The Mom avatar circle visually pokes up above the 42px-tall
+          // nav bar row via overflow (see _MomNavItem), but a tap there
+          // never reaches it — hit-testing is bounded by that row's own
+          // layout size, not by where content is merely painted. This
+          // invisible target, sized to the body's own bottom edge (which
+          // Scaffold already aligns with the nav bar's top edge), covers
+          // the actual raised circle so the whole thing is tappable, not
+          // just the sliver of it that happens to sit inside the row.
+          Positioned(
+            bottom: -12,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: goToMom,
+                child: const SizedBox(width: 72, height: 66),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           color: mom.surface,
@@ -55,10 +81,7 @@ class AppShell extends ConsumerWidget {
                           ? _MomNavItem(
                               style: momAvatar,
                               selected: navigationShell.currentIndex == i,
-                              onTap: () => navigationShell.goBranch(
-                                i,
-                                initialLocation: i == navigationShell.currentIndex,
-                              ),
+                              onTap: goToMom,
                             )
                           : _NavItem(
                               icon: _tabs[i].icon!,
