@@ -130,7 +130,7 @@ class TasksScreen extends ConsumerWidget {
               for (var i = 0; i < myTasks.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
-                  child: _TaskRow(task: myTasks[i], day: selectedDay, isToday: isToday, tintIndex: i),
+                  child: _TaskRow(task: myTasks[i], isToday: isToday, tintIndex: i),
                 )
             else ...[
               if (myTasks.isNotEmpty) ...[
@@ -141,7 +141,7 @@ class TasksScreen extends ConsumerWidget {
                 for (var i = 0; i < myTasks.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
-                    child: _TaskRow(task: myTasks[i], day: selectedDay, isToday: isToday, tintIndex: i),
+                    child: _TaskRow(task: myTasks[i], isToday: isToday, tintIndex: i),
                   ),
               ],
               if (healthTasks.isNotEmpty) ...[
@@ -152,7 +152,7 @@ class TasksScreen extends ConsumerWidget {
                 for (var i = 0; i < healthTasks.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
-                    child: _TaskRow(task: healthTasks[i], day: selectedDay, isToday: isToday, tintIndex: myTasks.length + i),
+                    child: _TaskRow(task: healthTasks[i], isToday: isToday, tintIndex: myTasks.length + i),
                   ),
               ],
             ],
@@ -417,10 +417,9 @@ class _DayCell extends StatelessWidget {
 }
 
 class _TaskRow extends ConsumerWidget {
-  const _TaskRow({required this.task, required this.day, required this.isToday, required this.tintIndex});
+  const _TaskRow({required this.task, required this.isToday, required this.tintIndex});
 
   final TaskItem task;
-  final DateTime day;
   final bool isToday;
   final int tintIndex;
 
@@ -473,17 +472,11 @@ class _TaskRow extends ConsumerWidget {
       }
       return;
     }
-    // A day other than today: just flip that day's completion row —
-    // no optimistic streak/celebration UI, since a streak is inherently
-    // about consecutive days ending today, not a retroactive edit.
-    final ok = await ref.read(tasksProvider.notifier).setDoneForDay(id: task.id, day: day, done: !task.done);
-    if (ok) {
-      ref.invalidate(tasksForSelectedDayProvider);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Something went wrong on our end. Please try again.')),
-      );
-    }
+    // Browsing a day other than today is read-only — only today's tasks
+    // can be checked off.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Let's focus on today's tasks first — Mom")),
+    );
   }
 
   @override

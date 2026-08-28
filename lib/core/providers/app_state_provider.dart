@@ -84,22 +84,6 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     }
   }
 
-  /// For toggling completion on a day other than today (browsing via
-  /// the Tasks page calendar) — doesn't touch `state`, which only ever
-  /// tracks "done today," just writes the completion row directly. The
-  /// UI invalidates [tasksForSelectedDayProvider] afterward to refetch.
-  Future<bool> setDoneForDay({required String id, required DateTime day, required bool done}) async {
-    final userId = ref.read(authServiceProvider).currentUser?.id;
-    if (userId == null) return false;
-    try {
-      await ref.read(tasksRepositoryProvider).setDone(taskId: id, userId: userId, done: done, date: day);
-      return true;
-    } catch (e, st) {
-      debugPrint('setDoneForDay failed: $e\n$st');
-      return false;
-    }
-  }
-
   Future<void> archiveTask(String id) async {
     final previous = state;
     state = [for (final t in state) if (t.id != id) t];

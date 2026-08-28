@@ -220,7 +220,7 @@ class DashboardScreen extends ConsumerWidget {
               for (var i = 0; i < selectedDayTasks.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
-                  child: _DashboardTaskRow(task: selectedDayTasks[i], tintIndex: i, day: selectedDay, isToday: isToday),
+                  child: _DashboardTaskRow(task: selectedDayTasks[i], tintIndex: i, isToday: isToday),
                 ),
           ],
         ),
@@ -453,10 +453,9 @@ class _WeekDayColumn extends StatelessWidget {
 }
 
 class _DashboardTaskRow extends ConsumerWidget {
-  const _DashboardTaskRow({required this.task, required this.tintIndex, required this.day, required this.isToday});
+  const _DashboardTaskRow({required this.task, required this.tintIndex, required this.isToday});
   final TaskItem task;
   final int tintIndex;
-  final DateTime day;
   final bool isToday;
 
   Future<void> _toggle(BuildContext context, WidgetRef ref) async {
@@ -474,18 +473,11 @@ class _DashboardTaskRow extends ConsumerWidget {
       }
       return;
     }
-    // A day other than today: just flip that day's completion row - no
-    // optimistic streak/celebration UI, since a streak is inherently
-    // about consecutive days ending today, not a retroactive edit. Same
-    // rule the Tasks screen follows for the identical case.
-    final ok = await ref.read(tasksProvider.notifier).setDoneForDay(id: task.id, day: day, done: !task.done);
-    if (ok) {
-      ref.invalidate(tasksForSelectedDayProvider);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Something went wrong on our end. Please try again.')),
-      );
-    }
+    // Browsing a day other than today is read-only — only today's tasks
+    // can be checked off. Same rule the Tasks screen follows.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Let's focus on today's tasks first — Mom")),
+    );
   }
 
   /// Reveal-then-tap delete: swiping only opens the action pane (nothing

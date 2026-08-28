@@ -124,9 +124,8 @@ class TasksRepository {
     required String taskId,
     required String userId,
     required bool done,
-    DateTime? date,
   }) {
-    final dateStr = date != null ? _dateOnly(date) : _today();
+    final dateStr = _today();
     if (done) {
       return _client.from('task_completions').insert({
         'task_id': taskId,
