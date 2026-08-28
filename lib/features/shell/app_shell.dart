@@ -52,12 +52,16 @@ class AppShell extends ConsumerWidget {
                   for (var i = 0; i < _tabs.length; i++)
                     Expanded(
                       child: i == 2
-                          ? _MomNavItem(
-                              style: momAvatar,
-                              selected: navigationShell.currentIndex == i,
-                              onTap: () => navigationShell.goBranch(
-                                i,
-                                initialLocation: i == navigationShell.currentIndex,
+                          ? OverflowBox(
+                              maxHeight: double.infinity,
+                              alignment: Alignment.bottomCenter,
+                              child: _MomNavItem(
+                                style: momAvatar,
+                                selected: navigationShell.currentIndex == i,
+                                onTap: () => navigationShell.goBranch(
+                                  i,
+                                  initialLocation: i == navigationShell.currentIndex,
+                                ),
                               ),
                             )
                           : _NavItem(
@@ -126,6 +130,7 @@ class _MomNavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Transform.translate(

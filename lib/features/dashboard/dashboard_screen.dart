@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -15,6 +16,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
 import '../../core/theme/mom_tokens.dart';
 import '../../core/theme/mom_typography.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/mom_components.dart';
 import '../shell/app_shell.dart';
@@ -486,16 +488,68 @@ class _DashboardTaskRow extends ConsumerWidget {
     }
   }
 
+  /// Reveal-then-tap delete: swiping only opens the action pane (nothing
+  /// is removed yet), a confirm dialog guards the actual deletion, and a
+  /// cancel just closes the pane back up rather than deleting anything.
+  /// Same behavior as the Tasks screen's equivalent row.
+  Future<void> _confirmAndArchive(BuildContext context, WidgetRef ref) async {
+    final mom = context.mom;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this task?'),
+        content: Text('"${task.title}" will be removed from your list. This can\'t be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: TextStyle(color: mom.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      if (context.mounted) Slidable.of(context)?.close();
+      return;
+    }
+    try {
+      await ref.read(tasksProvider.notifier).archiveTask(task.id);
+      ref.invalidate(tasksForSelectedDayProvider);
+    } catch (e) {
+      if (context.mounted) {
+        Slidable.of(context)?.close();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return MomTaskRow(
-      icon: task.category.icon,
-      tintIndex: tintIndex,
-      metaLabel: task.categoryLabel,
-      title: task.title,
-      sub: task.dueTimeLabel ?? (task.isHabit ? '${task.streakCount} day streak' : null),
-      done: task.done,
-      onToggle: () => _toggle(context, ref),
+    final mom = context.mom;
+    return Slidable(
+      key: ValueKey(task.id),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (actionContext) => _confirmAndArchive(actionContext, ref),
+            backgroundColor: mom.danger,
+            foregroundColor: Colors.white,
+            icon: LucideIcons.trash2,
+            borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+          ),
+        ],
+      ),
+      child: MomTaskRow(
+        icon: task.category.icon,
+        tintIndex: tintIndex,
+        metaLabel: task.categoryLabel,
+        title: task.title,
+        sub: task.dueTimeLabel ?? (task.isHabit ? '${task.streakCount} day streak' : null),
+        done: task.done,
+        onToggle: () => _toggle(context, ref),
+      ),
     );
   }
 }
