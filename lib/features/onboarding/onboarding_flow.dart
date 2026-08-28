@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,12 +8,16 @@ import '../../core/config/preview_mode.dart';
 import '../../core/constants/check_in_frequency.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/mom_mood.dart';
+import '../../core/theme/mom_tokens.dart';
+import '../../core/theme/mom_typography.dart';
 import '../../core/utils/friendly_error.dart';
 import '../../core/utils/password.dart';
 import '../../core/widgets/mom_avatar.dart';
+import '../../core/widgets/mom_components.dart';
 import '../../core/widgets/primary_button.dart';
+import '../settings/legal_screens.dart';
 
 /// Onboarding answers are collected here, then written to `profiles`
 /// once the account is created — see [_OnboardingFlowState._submit].
@@ -26,8 +31,20 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 const _goalOptions = ['Get more done', 'Build habits', 'Spend less', 'Get healthier'];
 const _procrastinationOptions = ['Exercise', 'Chores', 'Work deadlines', 'Sleeping on time', 'Spending less'];
 const _dailyRoutineOptions = ['Early riser', 'Standard 9-to-5 kind of day', 'Night owl', 'Pretty irregular'];
+const _dailyRoutineSubs = ['Up before 7, done by dinner', 'Weekday rhythm, protected evenings', 'Peak focus after 21:00', 'Shifts, travel, no fixed week'];
 const _livingSituationOptions = ['On my own', 'With a partner or spouse', 'With family', 'With roommates'];
+const _livingSituationSubs = ['Nobody else picks up the slack', 'Shared chores, shared blame', 'Kids, parents, or both', 'The dishes are political'];
 const _motivationStyleOptions = ['Gentle encouragement', 'Tough love, tell it straight', 'A mix of both'];
+const _motivationStyleSubs = ['Warm, patient, never sharp', 'She will bring up the streak you dropped', "Kind until you've stalled twice"];
+const _frequencySubs = ['One morning nudge', 'Morning plan, evening review', 'For the deadline weeks', 'You asked for this'];
+
+const _avatarTraits = [
+  'Sweet — but she keeps a list.',
+  'No excuses today, love.',
+  'Have you eaten yet?',
+  'Raises exactly one eyebrow.',
+  'Celebrates every small win.',
+];
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _pageController = PageController();
@@ -63,7 +80,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     setState(() => _step = step);
     _pageController.animateToPage(
       step,
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 240),
       curve: Curves.easeOut,
     );
   }
@@ -171,7 +188,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     }
   }
 
-
   void _next() {
     if (_step == _totalSteps - 1) {
       _submit();
@@ -204,9 +220,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return Scaffold(
+      backgroundColor: mom.shell,
       body: SafeArea(
+        top: _step != 0,
         child: Column(
           children: [
             if (_isLoginMode)
@@ -215,54 +233,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(LucideIcons.arrowLeft),
+                      icon: Icon(LucideIcons.chevronLeft, size: 22, color: mom.espresso),
                       onPressed: _backToSignUp,
                       tooltip: 'Back',
                     ),
                   ],
                 ),
               )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.md, AppSpacing.lg, 0),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 40,
-                      child: _step > 0
-                          ? IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: const Icon(LucideIcons.arrowLeft),
-                              onPressed: _previous,
-                              tooltip: 'Back',
-                            )
-                          : null,
-                    ),
-                    for (var i = 0; i < _totalSteps; i++)
-                      Expanded(
-                        child: Container(
-                          height: 4,
-                          margin: EdgeInsets.only(right: i == _totalSteps - 1 ? 0 : AppSpacing.xs),
-                          decoration: BoxDecoration(
-                            color: i <= _step ? AppColors.accent : theme.dividerTheme.color,
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            if (!_isLoginMode)
-              Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.sm),
-                  child: TextButton(
-                    onPressed: _startLogin,
-                    child: const Text('Already have an account? Log in'),
-                  ),
-                ),
-              ),
+            else if (_step > 0)
+              _ProgressHeader(step: _step, totalSteps: _totalSteps, onBack: _previous, onLogin: _startLogin),
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -271,6 +250,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   _AvatarStep(
                     hasPicked: _hasPickedAvatar,
                     onSelected: () => setState(() => _hasPickedAvatar = true),
+                    onLogin: _startLogin,
                   ),
                   _NameStep(controller: _nameController, onChanged: () => setState(() {})),
                   _MultiSelectStep(
@@ -287,10 +267,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     selected: _procrastination,
                     onToggle: (o) => setState(
                         () => _procrastination.contains(o) ? _procrastination.remove(o) : _procrastination.add(o)),
+                    momBubble: "Noted. I'm writing all of this down, by the way.",
+                    momExpression: MomExpression.notes,
                   ),
                   _SingleSelectStep(
                     title: "What's your daily routine like?",
                     options: _dailyRoutineOptions,
+                    subs: _dailyRoutineSubs,
                     selected: _dailyRoutine,
                     onSelect: (o) {
                       setState(() => _dailyRoutine = o);
@@ -300,6 +283,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   _SingleSelectStep(
                     title: "What's your living situation?",
                     options: _livingSituationOptions,
+                    subs: _livingSituationSubs,
                     selected: _livingSituation,
                     onSelect: (o) {
                       setState(() => _livingSituation = o);
@@ -310,17 +294,17 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     title: 'What motivates you best?',
                     subtitle: "This shapes how Mom talks to you.",
                     options: _motivationStyleOptions,
+                    subs: _motivationStyleSubs,
                     selected: _motivationStyle,
                     onSelect: (o) {
                       setState(() => _motivationStyle = o);
                       _next();
                     },
+                    momBubble: "Tough love it is. Don't say I didn't warn you.",
+                    momExpression: MomExpression.mad,
                   ),
                   _StressorStep(controller: _stressorController, onChanged: () => setState(() {})),
-                  _SingleSelectStep(
-                    title: 'How often should Mom check in?',
-                    subtitle: 'You can change this later in Settings.',
-                    options: checkInFrequencyOptions,
+                  _FrequencyStep(
                     selected: _frequency,
                     onSelect: (f) {
                       setState(() => _frequency = f);
@@ -347,18 +331,80 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             ),
             if (!_isAutoAdvanceStep)
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.momGutter, 0, AppSpacing.momGutter, AppSpacing.lg),
                 child: PrimaryButton(
                   label: _step == _totalSteps - 1
                       ? (_isLoginMode
-                          ? (_submitting ? 'Logging in...' : 'Log in')
-                          : (_submitting ? 'Creating account...' : 'Create account'))
+                          ? (_submitting ? 'Logging in…' : 'Log in')
+                          : (_submitting ? 'Creating account…' : 'Create account'))
                       : 'Continue',
                   onPressed: _canContinue ? _next : null,
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shared onboarding chrome for every step but the first (which places
+/// its own progress row on the peach hero instead).
+class _ProgressHeader extends StatelessWidget {
+  const _ProgressHeader({required this.step, required this.totalSteps, required this.onBack, required this.onLogin});
+  final int step;
+  final int totalSteps;
+  final VoidCallback onBack;
+  final VoidCallback onLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    final mom = context.mom;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.md, AppSpacing.momGutter, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 40,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: Icon(LucideIcons.chevronLeft, size: 22, color: mom.espresso),
+                  onPressed: onBack,
+                  tooltip: 'Back',
+                ),
+              ),
+              for (var i = 0; i < totalSteps; i++)
+                Expanded(
+                  child: Container(
+                    height: 4,
+                    margin: EdgeInsets.only(right: i == totalSteps - 1 ? 0 : 5),
+                    decoration: BoxDecoration(
+                      color: i <= step ? mom.doneOrange : mom.fieldBorder,
+                      borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: GestureDetector(
+              onTap: onLogin,
+              child: RichText(
+                text: TextSpan(
+                  style: MomText.meta(mom.inkMuted, size: 12),
+                  children: [
+                    const TextSpan(text: 'Already have an account? '),
+                    TextSpan(text: 'Log in', style: MomText.control(mom.espresso, size: 12)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -372,16 +418,16 @@ class _StepScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.momGutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.headlineLarge),
+          Text(title, style: MomText.screenTitle(mom.ink)),
           if (subtitle != null) ...[
             const SizedBox(height: AppSpacing.xs),
-            Text(subtitle!, style: theme.textTheme.titleSmall),
+            Text(subtitle!, style: MomText.body(mom.inkMuted)),
           ],
           const SizedBox(height: AppSpacing.xl),
           Expanded(child: child),
@@ -392,74 +438,188 @@ class _StepScaffold extends StatelessWidget {
 }
 
 class _AvatarStep extends ConsumerWidget {
-  const _AvatarStep({required this.hasPicked, required this.onSelected});
+  const _AvatarStep({required this.hasPicked, required this.onSelected, required this.onLogin});
   final bool hasPicked;
   final VoidCallback onSelected;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final mom = context.mom;
     final selected = ref.watch(momAvatarStyleProvider);
-    return _StepScaffold(
-      title: 'Meet your Mom',
-      subtitle: 'Pick a look. She is still Mom either way.',
-      child: GridView.count(
-        crossAxisCount: 3,
-        mainAxisSpacing: AppSpacing.lg,
-        crossAxisSpacing: AppSpacing.lg,
+    final styles = MomAvatarStyle.values;
+    final traitIndex = styles.indexOf(selected);
+
+    return SingleChildScrollView(
+      child: Column(
         children: [
-          for (final style in MomAvatarStyle.values)
-            GestureDetector(
-              onTap: () {
-                ref.read(momAvatarStyleProvider.notifier).state = style;
-                onSelected();
-              },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          Container(
+            width: double.infinity,
+            height: 300,
+            padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 0, AppSpacing.momGutter, 0),
+            decoration: BoxDecoration(color: mom.promoPeach),
+            child: SafeArea(
+              bottom: false,
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: hasPicked && selected == style ? AppColors.accent : Colors.transparent,
-                        width: 2,
+                  Column(
+                    children: [
+                      Row(
+                        children: [
+                          const SizedBox(width: 40),
+                          for (var i = 0; i < 10; i++)
+                            Expanded(
+                              child: Container(
+                                height: 4,
+                                margin: EdgeInsets.only(right: i == 9 ? 0 : 5),
+                                decoration: BoxDecoration(
+                                  color: i == 0 ? mom.doneOrange : mom.peachOnPeach,
+                                  borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                    child: MomAvatar(style: style, showMoodBadge: false, size: 56),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: onLogin,
+                            child: RichText(
+                              text: TextSpan(
+                                style: MomText.meta(mom.peachPanelMuted, size: 12),
+                                children: [
+                                  const TextSpan(text: 'Already have an account? '),
+                                  TextSpan(text: 'Log in', style: MomText.control(mom.espresso, size: 12)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    bottom: -84,
+                    left: 0,
+                    right: 0,
+                    child: Center(child: MomAvatar(style: selected, expression: MomExpression.notes, showMoodBadge: false, size: 168)),
                   ),
                 ],
               ),
             ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 92, 20, 24),
+            decoration: BoxDecoration(
+              color: mom.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusSheet)),
+            ),
+            child: Column(
+              children: [
+                Text('Meet your Mom', style: MomText.screenTitle(mom.ink), textAlign: TextAlign.center),
+                const SizedBox(height: 6),
+                Text("Pick a look. She's Mom either way.", style: MomText.body(mom.inkMuted), textAlign: TextAlign.center),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (final style in styles)
+                      GestureDetector(
+                        onTap: () {
+                          ref.read(momAvatarStyleProvider.notifier).state = style;
+                          onSelected();
+                        },
+                        child: Opacity(
+                          opacity: hasPicked && selected == style ? 1 : 0.72,
+                          child: Container(
+                            padding: const EdgeInsets.all(2.5),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: hasPicked && selected == style ? mom.espresso : Colors.transparent,
+                                width: 2.5,
+                              ),
+                              boxShadow: hasPicked && selected == style
+                                  ? [BoxShadow(color: mom.promoPeach, blurRadius: 0, spreadRadius: 4)]
+                                  : null,
+                            ),
+                            child: MomAvatar(
+                              style: style,
+                              expression: hasPicked && selected == style ? MomExpression.happy : MomExpression.normal,
+                              showMoodBadge: false,
+                              size: 60,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  decoration: BoxDecoration(color: mom.shell, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Mom', style: MomText.cardTitle(mom.ink)),
+                      const SizedBox(height: 2),
+                      Text(traitIndex >= 0 ? _avatarTraits[traitIndex] : _avatarTraits[0], style: MomText.body(mom.inkSoft)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _NameStep extends StatelessWidget {
+class _NameStep extends ConsumerWidget {
   const _NameStep({required this.controller, required this.onChanged});
   final TextEditingController controller;
   final VoidCallback onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mom = context.mom;
     return _StepScaffold(
       title: 'What should Mom call you?',
-      child: TextField(
-        controller: controller,
-        onChanged: (_) => onChanged(),
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(
-          hintText: 'Your name',
-          filled: true,
-          fillColor: theme.cardTheme.color,
-          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-            borderSide: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), boxShadow: MomElevation.card),
+            child: TextField(
+              controller: controller,
+              onChanged: (_) => onChanged(),
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              style: MomText.rowLabel(mom.ink, selected: true),
+              cursorColor: mom.doneOrange,
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: 'Your name',
+                hintStyle: MomText.placeholder(mom.placeholderText, size: 15),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: AppSpacing.lg),
+          MomMessageCard(
+            avatarStyle: ref.watch(momAvatarStyleProvider),
+            expression: MomExpression.happy,
+            eyebrow: 'Mom says',
+            message: "Lovely name. Now let's see what you keep putting off, sweetheart.",
+          ),
+        ],
       ),
     );
   }
@@ -472,6 +632,8 @@ class _MultiSelectStep extends StatelessWidget {
     required this.options,
     required this.selected,
     required this.onToggle,
+    this.momBubble,
+    this.momExpression,
   });
 
   final String title;
@@ -479,6 +641,8 @@ class _MultiSelectStep extends StatelessWidget {
   final List<String> options;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
+  final String? momBubble;
+  final MomExpression? momExpression;
 
   @override
   Widget build(BuildContext context) {
@@ -486,12 +650,27 @@ class _MultiSelectStep extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       child: SingleChildScrollView(
-        child: Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final o in options)
-              _ChoiceCard(label: o, selected: selected.contains(o), onTap: () => onToggle(o)),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                for (final o in options) MomChip(label: o, selected: selected.contains(o), onTap: () => onToggle(o)),
+              ],
+            ),
+            if (momBubble != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Consumer(
+                builder: (context, ref, _) => MomMessageCard(
+                  avatarStyle: ref.watch(momAvatarStyleProvider),
+                  expression: momExpression ?? MomExpression.normal,
+                  eyebrow: 'Mom says',
+                  message: momBubble!,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -500,23 +679,29 @@ class _MultiSelectStep extends StatelessWidget {
 }
 
 /// A single-choice question step — every "pick one of these" onboarding
-/// screen (check-in frequency, daily routine, living situation,
-/// motivation style) is this same shape. [selected] being `null` (no
-/// pick made yet) just shows nothing highlighted — every one of these
-/// questions is optional, so Continue never blocks on it.
+/// screen (daily routine, living situation, motivation style) is this
+/// same shape. [selected] being `null` (no pick made yet) just shows
+/// nothing highlighted — every one of these questions is optional, so
+/// Continue never blocks on it.
 class _SingleSelectStep extends StatelessWidget {
   const _SingleSelectStep({
     required this.title,
     this.subtitle,
     required this.options,
+    this.subs,
     required this.selected,
     required this.onSelect,
+    this.momBubble,
+    this.momExpression,
   });
   final String title;
   final String? subtitle;
   final List<String> options;
+  final List<String>? subs;
   final String? selected;
   final ValueChanged<String> onSelect;
+  final String? momBubble;
+  final MomExpression? momExpression;
 
   @override
   Widget build(BuildContext context) {
@@ -526,16 +711,75 @@ class _SingleSelectStep extends StatelessWidget {
       child: SingleChildScrollView(
         child: Column(
           children: [
-            for (final o in options)
+            for (var i = 0; i < options.length; i++)
               Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _ChoiceCard(
-                  label: o,
-                  selected: selected == o,
-                  onTap: () => onSelect(o),
-                  fullWidth: true,
+                padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
+                child: MomOptionRow(
+                  label: options[i],
+                  sub: subs != null ? subs![i] : null,
+                  selected: selected == options[i],
+                  onTap: () => onSelect(options[i]),
                 ),
               ),
+            if (momBubble != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Consumer(
+                builder: (context, ref, _) => MomMessageCard(
+                  avatarStyle: ref.watch(momAvatarStyleProvider),
+                  expression: momExpression ?? MomExpression.normal,
+                  eyebrow: 'Mom says',
+                  message: momBubble!,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FrequencyStep extends ConsumerWidget {
+  const _FrequencyStep({required this.selected, required this.onSelect});
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mom = context.mom;
+    final avatarStyle = ref.watch(momAvatarStyleProvider);
+    final index = checkInFrequencyOptions.indexOf(selected).clamp(0, _frequencySubs.length - 1);
+
+    return _StepScaffold(
+      title: 'How often should Mom check in?',
+      subtitle: 'You can change this later in Settings.',
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            for (var i = 0; i < checkInFrequencyOptions.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
+                child: MomOptionRow(
+                  label: checkInFrequencyOptions[i],
+                  sub: _frequencySubs[i],
+                  selected: selected == checkInFrequencyOptions[i],
+                  onTap: () => onSelect(checkInFrequencyOptions[i]),
+                ),
+              ),
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              decoration: BoxDecoration(color: mom.promoPeach, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPanel)),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MomAvatar(style: avatarStyle, expression: MomExpression.happy, showMoodBadge: false, size: 52),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(_frequencySubs[index], style: MomText.momMessage(mom.ink))),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -551,67 +795,50 @@ class _StressorStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return _StepScaffold(
       title: "What's weighing on you most right now?",
-      subtitle: 'Totally optional — skip if you\'d rather not say.',
-      child: TextField(
-        controller: controller,
-        onChanged: (_) => onChanged(),
-        maxLines: 4,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(
-          hintText: 'e.g. work deadlines, money, a big life change...',
-          filled: true,
-          fillColor: theme.cardTheme.color,
-          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-            borderSide: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
+      subtitle: "Totally optional — skip if you'd rather not say.",
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            constraints: const BoxConstraints(minHeight: 132),
+            decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                TextField(
+                  controller: controller,
+                  onChanged: (_) => onChanged(),
+                  maxLines: 4,
+                  maxLength: 200,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: MomText.body(mom.ink).copyWith(fontSize: 14),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    counterText: '',
+                    hintText: 'Work deadlines, money, a big life change…',
+                    hintStyle: MomText.placeholder(mom.placeholderText),
+                  ),
+                ),
+                Text('${controller.text.length} / 200', style: MomText.meta(mom.placeholderText, size: 11)),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: AppSpacing.lg),
+          Consumer(
+            builder: (context, ref, _) => MomMessageCard(
+              avatarStyle: ref.watch(momAvatarStyleProvider),
+              expression: MomExpression.normal,
+              eyebrow: 'Mom says',
+              message: 'Between us. I only bring it up when it helps.',
+            ),
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _ChoiceCard extends StatelessWidget {
-  const _ChoiceCard({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.fullWidth = false,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final bool fullWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final content = AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: selected ? theme.colorScheme.secondary : theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-        border: Border.all(
-          color: selected ? theme.colorScheme.secondary : (theme.dividerTheme.color ?? AppColors.borderLight),
-        ),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: selected ? theme.colorScheme.onSecondary : theme.colorScheme.onSurface,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-    return GestureDetector(
-      onTap: onTap,
-      child: fullWidth ? SizedBox(width: double.infinity, child: content) : content,
     );
   }
 }
@@ -647,17 +874,30 @@ class _AuthStep extends StatefulWidget {
 
 class _AuthStepState extends State<_AuthStep> {
   bool _obscurePassword = true;
+  late final _termsRecognizer = TapGestureRecognizer()
+    ..onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsOfServiceScreen()));
+  late final _privacyRecognizer = TapGestureRecognizer()
+    ..onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
+
+  @override
+  void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     final fieldDecoration = InputDecoration(
       filled: true,
-      fillColor: theme.cardTheme.color,
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-        borderSide: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
+      fillColor: mom.surface,
+      hintStyle: MomText.placeholder(mom.placeholderText),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.momGutter, vertical: AppSpacing.md),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+        borderSide: BorderSide(color: mom.espresso, width: 1.5),
       ),
     );
 
@@ -668,11 +908,24 @@ class _AuthStepState extends State<_AuthStep> {
           : 'Save your Mom and pick up where you left off.',
       child: ListView(
         children: [
+          if (!widget.isLoginMode) ...[
+            Consumer(
+              builder: (context, ref, _) => Row(
+                children: [
+                  MomAvatar(style: ref.watch(momAvatarStyleProvider), expression: MomExpression.happy, showMoodBadge: false, size: 40),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Almost there.', style: MomText.body(mom.inkSoft))),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           TextField(
             controller: widget.emailController,
             onChanged: (_) => widget.onChanged(),
             keyboardType: TextInputType.emailAddress,
             enabled: !widget.submitting,
+            style: MomText.body(mom.ink),
             decoration: fieldDecoration.copyWith(hintText: 'Email'),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -681,10 +934,11 @@ class _AuthStepState extends State<_AuthStep> {
             onChanged: (_) => widget.onChanged(),
             obscureText: _obscurePassword,
             enabled: !widget.submitting,
+            style: MomText.body(mom.ink),
             decoration: fieldDecoration.copyWith(
               hintText: widget.isLoginMode ? 'Password' : 'Password (min. 8 characters)',
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
+                icon: Icon(_obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff, size: 20, color: mom.inkMuted),
                 tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
@@ -693,9 +947,12 @@ class _AuthStepState extends State<_AuthStep> {
           if (widget.isLoginMode) ...[
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: widget.submitting ? null : widget.onForgotPasswordTap,
-                child: const Text('Forgot password?'),
+              child: GestureDetector(
+                onTap: widget.submitting ? null : widget.onForgotPasswordTap,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('Forgot password?', style: MomText.control(mom.espresso)),
+                ),
               ),
             ),
           ] else ...[
@@ -704,43 +961,59 @@ class _AuthStepState extends State<_AuthStep> {
           ],
           if (widget.error != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(widget.error!, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.moodDisappointed)),
+            Text(widget.error!, style: MomText.meta(mom.danger)),
           ],
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
-              Expanded(child: Divider(color: theme.dividerTheme.color)),
+              Expanded(child: Divider(color: mom.fieldBorder)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                child: Text('or', style: theme.textTheme.labelSmall),
+                child: Text('or', style: MomText.meta(mom.inkMuted)),
               ),
-              Expanded(child: Divider(color: theme.dividerTheme.color)),
+              Expanded(child: Divider(color: mom.fieldBorder)),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          _AuthButton(
+          MomSecondaryButton(
             icon: LucideIcons.globe,
             label: 'Continue with Google',
-            onTap: widget.submitting ? null : widget.onGoogleTap,
+            onPressed: widget.submitting ? null : widget.onGoogleTap,
           ),
           const SizedBox(height: AppSpacing.sm),
-          _AuthButton(
+          MomSecondaryButton(
             icon: LucideIcons.apple,
             label: 'Continue with Apple',
-            onTap: widget.submitting ? null : widget.onAppleTap,
+            onPressed: widget.submitting ? null : widget.onAppleTap,
           ),
           if (!widget.isLoginMode) ...[
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              'By continuing you agree to the Terms of Service and Privacy Policy.',
-              style: theme.textTheme.labelSmall,
+            RichText(
               textAlign: TextAlign.center,
+              text: TextSpan(
+                style: MomText.meta(mom.inkMuted),
+                children: [
+                  const TextSpan(text: 'By continuing you agree to the '),
+                  TextSpan(
+                    text: 'Terms of Service',
+                    style: MomText.control(mom.espresso, size: 11.5),
+                    recognizer: _termsRecognizer,
+                  ),
+                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: MomText.control(mom.espresso, size: 11.5),
+                    recognizer: _privacyRecognizer,
+                  ),
+                  const TextSpan(text: '.'),
+                ],
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             Center(
-              child: TextButton(
-                onPressed: widget.submitting ? null : widget.onPreviewTap,
-                child: const Text('Just want to look around? Preview without an account'),
+              child: GestureDetector(
+                onTap: widget.submitting ? null : widget.onPreviewTap,
+                child: Text('Just looking around? Preview without an account', style: MomText.control(mom.inkMuted)),
               ),
             ),
           ],
@@ -756,7 +1029,7 @@ class _PasswordRequirements extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -765,50 +1038,22 @@ class _PasswordRequirements extends StatelessWidget {
             padding: const EdgeInsets.only(top: 4),
             child: Row(
               children: [
-                Icon(
-                  requirement.isMet(password) ? LucideIcons.circleCheck : LucideIcons.circle,
-                  size: 14,
-                  color: requirement.isMet(password)
-                      ? AppColors.moodHappy
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: requirement.isMet(password) ? mom.espresso : Colors.transparent,
+                    border: Border.all(color: requirement.isMet(password) ? mom.espresso : mom.checkIdleBorder, width: 1.5),
+                  ),
+                  child: requirement.isMet(password) ? const Icon(LucideIcons.check, size: 10, color: Colors.white) : null,
                 ),
                 const SizedBox(width: AppSpacing.xs),
-                Text(
-                  requirement.label,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: requirement.isMet(password) ? AppColors.moodHappy : theme.textTheme.labelSmall?.color,
-                  ),
-                ),
+                Text(requirement.label, style: MomText.meta(mom.inkMuted)),
               ],
             ),
           ),
       ],
-    );
-  }
-}
-
-class _AuthButton extends StatelessWidget {
-  const _AuthButton({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: theme.colorScheme.onSurface,
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-          side: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
-        ),
-      ),
     );
   }
 }
