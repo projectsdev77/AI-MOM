@@ -451,9 +451,85 @@ class _AvatarStep extends ConsumerWidget {
     final styles = MomAvatarStyle.values;
     final traitIndex = styles.indexOf(selected);
 
+    // The header and the sheet below it are siblings painted in order, so
+    // without this Stack the sheet (painted second) would simply paint
+    // over the bottom half of the avatar peeking out of the header
+    // below it — wrapping both in a Stack, with the header painted last,
+    // keeps the avatar visible on top the way the peach panel's -84
+    // overflow and the sheet's matching 92 top padding actually intend.
     return SingleChildScrollView(
-      child: Column(
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
+          Column(
+            children: [
+              const SizedBox(height: 300),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 92, 20, 24),
+                decoration: BoxDecoration(
+                  color: mom.surface,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusSheet)),
+                ),
+                child: Column(
+                  children: [
+                    Text('Meet your Mom', style: MomText.screenTitle(mom.ink), textAlign: TextAlign.center),
+                    const SizedBox(height: 6),
+                    Text("Pick a look. She's Mom either way.", style: MomText.body(mom.inkMuted), textAlign: TextAlign.center),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        for (final style in styles)
+                          GestureDetector(
+                            onTap: () {
+                              ref.read(momAvatarStyleProvider.notifier).state = style;
+                              onSelected();
+                            },
+                            child: Opacity(
+                              opacity: hasPicked && selected == style ? 1 : 0.72,
+                              child: Container(
+                                padding: const EdgeInsets.all(2.5),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: hasPicked && selected == style ? mom.espresso : Colors.transparent,
+                                    width: 2.5,
+                                  ),
+                                  boxShadow: hasPicked && selected == style
+                                      ? [BoxShadow(color: mom.promoPeach, blurRadius: 0, spreadRadius: 4)]
+                                      : null,
+                                ),
+                                child: MomAvatar(
+                                  style: style,
+                                  expression: hasPicked && selected == style ? MomExpression.happy : MomExpression.normal,
+                                  showMoodBadge: false,
+                                  size: 60,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                      decoration: BoxDecoration(color: mom.shell, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Mom', style: MomText.cardTitle(mom.ink)),
+                          const SizedBox(height: 2),
+                          Text(traitIndex >= 0 ? _avatarTraits[traitIndex] : _avatarTraits[0], style: MomText.body(mom.inkSoft)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           Container(
             width: double.infinity,
             height: 300,
@@ -510,70 +586,6 @@ class _AvatarStep extends ConsumerWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 92, 20, 24),
-            decoration: BoxDecoration(
-              color: mom.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusSheet)),
-            ),
-            child: Column(
-              children: [
-                Text('Meet your Mom', style: MomText.screenTitle(mom.ink), textAlign: TextAlign.center),
-                const SizedBox(height: 6),
-                Text("Pick a look. She's Mom either way.", style: MomText.body(mom.inkMuted), textAlign: TextAlign.center),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    for (final style in styles)
-                      GestureDetector(
-                        onTap: () {
-                          ref.read(momAvatarStyleProvider.notifier).state = style;
-                          onSelected();
-                        },
-                        child: Opacity(
-                          opacity: hasPicked && selected == style ? 1 : 0.72,
-                          child: Container(
-                            padding: const EdgeInsets.all(2.5),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: hasPicked && selected == style ? mom.espresso : Colors.transparent,
-                                width: 2.5,
-                              ),
-                              boxShadow: hasPicked && selected == style
-                                  ? [BoxShadow(color: mom.promoPeach, blurRadius: 0, spreadRadius: 4)]
-                                  : null,
-                            ),
-                            child: MomAvatar(
-                              style: style,
-                              expression: hasPicked && selected == style ? MomExpression.happy : MomExpression.normal,
-                              showMoodBadge: false,
-                              size: 60,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                  decoration: BoxDecoration(color: mom.shell, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Mom', style: MomText.cardTitle(mom.ink)),
-                      const SizedBox(height: 2),
-                      Text(traitIndex >= 0 ? _avatarTraits[traitIndex] : _avatarTraits[0], style: MomText.body(mom.inkSoft)),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ),
         ],
