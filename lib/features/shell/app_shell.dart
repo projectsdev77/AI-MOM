@@ -173,6 +173,12 @@ class MomFab extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: MomElevation.fab),
       child: FloatingActionButton(
+        // Home/Tasks/Financial all stay mounted at once under the bottom
+        // nav's StatefulShellRoute, so their FABs would otherwise share
+        // Flutter's implicit default hero tag and collide on any route
+        // transition ("multiple heroes share the same tag"). This FAB never
+        // needs to hero-morph into another screen's FAB, so just opt out.
+        heroTag: null,
         onPressed: onPressed,
         tooltip: tooltip,
         backgroundColor: mom.espresso,
