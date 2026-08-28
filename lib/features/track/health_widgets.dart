@@ -146,7 +146,7 @@ Future<void> showLogSleepSheet(BuildContext context, WidgetRef ref) {
 Future<void> showLogWaterDialog(BuildContext context, WidgetRef ref, {required int currentCount}) {
   return showDialog(
     context: context,
-    barrierColor: const Color(0x51221E1E),
+    barrierColor: context.mom.ink.withValues(alpha: 0.32),
     builder: (context) => _LogWaterDialog(currentCount: currentCount),
   );
 }

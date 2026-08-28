@@ -1,5 +1,5 @@
-/// The two subscription tiers. Full-only features stay visible and are
-/// gated in the UI via [LockedFeatureOverlay] rather than hidden.
+/// The two subscription tiers. Full-only features stay visible for
+/// Basic users, just dimmed/locked in place rather than hidden outright.
 enum AppPlan { basic, full }
 
 extension AppPlanX on AppPlan {

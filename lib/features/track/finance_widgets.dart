@@ -21,7 +21,7 @@ Future<void> showAddExpenseSheet(BuildContext context) {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: const Color(0x47221E1E),
+    barrierColor: context.mom.ink.withValues(alpha: 0.28),
     builder: (context) => const _AddExpenseSheet(),
   );
 }

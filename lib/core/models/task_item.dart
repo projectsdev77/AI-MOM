@@ -1,8 +1,6 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/widgets.dart';
 
-import '../widgets/category_chip.dart';
-
 /// [other] is the fallback icon/tint "kind" for any custom category text
 /// that doesn't match one of the built-in names — see
 /// [TasksRepository._parseCategoryKind] in tasks_repository.dart. It's
@@ -29,16 +27,6 @@ extension TaskCategoryX on TaskCategory {
         TaskCategory.personal => LucideIcons.user,
         TaskCategory.education => LucideIcons.graduationCap,
         TaskCategory.other => LucideIcons.tag,
-      };
-
-  ChipTint get tint => switch (this) {
-        TaskCategory.chores => ChipTint.tan,
-        TaskCategory.work => ChipTint.sage,
-        TaskCategory.health => ChipTint.blush,
-        TaskCategory.money => ChipTint.peach,
-        TaskCategory.personal => ChipTint.sage,
-        TaskCategory.education => ChipTint.blush,
-        TaskCategory.other => ChipTint.tan,
       };
 }
 
