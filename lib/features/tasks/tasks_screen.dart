@@ -233,6 +233,7 @@ class _TasksCalendarCardState extends ConsumerState<_TasksCalendarCard> {
 
   void _selectDay(DateTime day) {
     ref.read(selectedTaskDayProvider.notifier).state = DateTime(day.year, day.month, day.day);
+    if (_expanded) setState(() => _expanded = false);
   }
 
   @override
@@ -347,7 +348,7 @@ class _MonthGrid extends StatelessWidget {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.85),
           itemCount: leadingBlanks + daysInMonth,
           itemBuilder: (context, index) {
             if (index < leadingBlanks) return const SizedBox.shrink();
@@ -357,6 +358,7 @@ class _MonthGrid extends StatelessWidget {
               isToday: _isSameDay(day, now),
               isSelected: _isSameDay(day, selectedDay),
               onTap: () => onDayTap(day),
+              showWeekdayLabel: false,
             );
           },
         ),
@@ -367,11 +369,18 @@ class _MonthGrid extends StatelessWidget {
 }
 
 class _DayCell extends StatelessWidget {
-  const _DayCell({required this.day, required this.isToday, required this.isSelected, required this.onTap});
+  const _DayCell({
+    required this.day,
+    required this.isToday,
+    required this.isSelected,
+    required this.onTap,
+    this.showWeekdayLabel = true,
+  });
   final DateTime day;
   final bool isToday;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool showWeekdayLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -382,8 +391,10 @@ class _DayCell extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(DateFormat('E').format(day).substring(0, 1), style: MomText.meta(isToday || isSelected ? mom.ink : mom.inkMuted)),
-          const SizedBox(height: 6),
+          if (showWeekdayLabel) ...[
+            Text(DateFormat('E').format(day).substring(0, 1), style: MomText.meta(isToday || isSelected ? mom.ink : mom.inkMuted)),
+            const SizedBox(height: 6),
+          ],
           Container(
             width: 32,
             height: 32,

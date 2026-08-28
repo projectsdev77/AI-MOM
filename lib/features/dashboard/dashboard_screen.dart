@@ -69,7 +69,8 @@ class DashboardScreen extends ConsumerWidget {
     void goToHealthOrUpgrade() => plan.isFull ? context.push('/track/health') : context.push('/upgrade');
 
     final selectedDayTasks = selectedDayTasksAsync.valueOrNull ?? const <TaskItem>[];
-    final completed = tasks.where((t) => t.done).length;
+    final todayTasks = tasks.where((t) => t.appliesToDay(DateTime.now())).toList();
+    final completed = todayTasks.where((t) => t.done).length;
     final moodDotColor = switch (mood) {
       MomMood.proud => AppColors.moodHappy,
       MomMood.neutral => mom.doneOrange,
@@ -141,7 +142,7 @@ class DashboardScreen extends ConsumerWidget {
                     child: MomStatCard(
                       icon: LucideIcons.flame,
                       tintIndex: 0,
-                      value: '$completed/${tasks.length}',
+                      value: '$completed/${todayTasks.length}',
                       caption: 'Tasks today',
                     ),
                   ),
@@ -252,6 +253,7 @@ class _WeekStripCardState extends ConsumerState<_WeekStripCard> {
 
   void _selectDay(DateTime day) {
     ref.read(selectedTaskDayProvider.notifier).state = DateTime(day.year, day.month, day.day);
+    if (_expanded) setState(() => _expanded = false);
   }
 
   @override
@@ -371,7 +373,7 @@ class _MonthGrid extends StatelessWidget {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.85),
           itemCount: leadingBlanks + daysInMonth,
           itemBuilder: (context, index) {
             if (index < leadingBlanks) return const SizedBox.shrink();
@@ -381,6 +383,7 @@ class _MonthGrid extends StatelessWidget {
               isSelected: _isSameDay(day, selectedDay),
               fullyDone: _isSameDay(day, now) && allDoneToday,
               onTap: () => onDayTap(day),
+              showWeekdayLabel: false,
             );
           },
         ),
@@ -391,11 +394,18 @@ class _MonthGrid extends StatelessWidget {
 }
 
 class _WeekDayColumn extends StatelessWidget {
-  const _WeekDayColumn({required this.day, required this.isSelected, required this.fullyDone, required this.onTap});
+  const _WeekDayColumn({
+    required this.day,
+    required this.isSelected,
+    required this.fullyDone,
+    required this.onTap,
+    this.showWeekdayLabel = true,
+  });
   final DateTime day;
   final bool isSelected;
   final bool fullyDone;
   final VoidCallback onTap;
+  final bool showWeekdayLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -407,8 +417,10 @@ class _WeekDayColumn extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(DateFormat('E').format(day).substring(0, 1), style: MomText.meta(isToday || isSelected ? mom.ink : mom.inkMuted, size: 11)),
-          const SizedBox(height: 6),
+          if (showWeekdayLabel) ...[
+            Text(DateFormat('E').format(day).substring(0, 1), style: MomText.meta(isToday || isSelected ? mom.ink : mom.inkMuted, size: 11)),
+            const SizedBox(height: 6),
+          ],
           Container(
             width: 32,
             height: 32,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/mom_mood.dart';
 import '../theme/mom_tokens.dart';
@@ -159,9 +160,11 @@ class MomTaskRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   title,
-                  style: MomText.taskTitle(mom.ink).copyWith(
+                  // Fixed (not brightness-dependent) — this row always sits on a
+                  // light tint fill, which never flips color in dark mode.
+                  style: MomText.taskTitle(AppColors.ink).copyWith(
                     decoration: done ? TextDecoration.lineThrough : null,
-                    color: done ? mom.ink.withValues(alpha: 0.6) : mom.ink,
+                    color: done ? AppColors.ink.withValues(alpha: 0.6) : AppColors.ink,
                   ),
                 ),
                 if (sub != null) ...[
