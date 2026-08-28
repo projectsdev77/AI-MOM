@@ -475,7 +475,7 @@ class _TaskRow extends ConsumerWidget {
     // Browsing a day other than today is read-only — only today's tasks
     // can be checked off.
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Let's focus on today's tasks first — Mom")),
+      const SnackBar(content: Text("Let's focus on today's tasks")),
     );
   }
 

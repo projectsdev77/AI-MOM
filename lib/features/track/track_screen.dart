@@ -10,6 +10,7 @@ import '../../core/providers/currency_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
 import '../../core/repositories/health_repository.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
 import '../../core/theme/mom_tokens.dart';
@@ -376,7 +377,9 @@ class _WhatYoudGetCard extends StatelessWidget {
         children: [
           Text(title, style: MomText.cardTitle(tintIcon)),
           const SizedBox(height: 4),
-          Text(body, style: MomText.meta(mom.inkSoft)),
+          // Fixed (not brightness-dependent) — this card always sits on a
+          // light tint fill, which never flips color in dark mode.
+          Text(body, style: MomText.meta(AppColors.inkSoft)),
         ],
       ),
     );

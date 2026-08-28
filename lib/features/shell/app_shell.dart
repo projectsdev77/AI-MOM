@@ -52,16 +52,12 @@ class AppShell extends ConsumerWidget {
                   for (var i = 0; i < _tabs.length; i++)
                     Expanded(
                       child: i == 2
-                          ? OverflowBox(
-                              maxHeight: double.infinity,
-                              alignment: Alignment.bottomCenter,
-                              child: _MomNavItem(
-                                style: momAvatar,
-                                selected: navigationShell.currentIndex == i,
-                                onTap: () => navigationShell.goBranch(
-                                  i,
-                                  initialLocation: i == navigationShell.currentIndex,
-                                ),
+                          ? _MomNavItem(
+                              style: momAvatar,
+                              selected: navigationShell.currentIndex == i,
+                              onTap: () => navigationShell.goBranch(
+                                i,
+                                initialLocation: i == navigationShell.currentIndex,
                               ),
                             )
                           : _NavItem(
@@ -129,28 +125,34 @@ class _MomNavItem extends StatelessWidget {
     final mom = context.mom;
     return InkWell(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
         children: [
-          Transform.translate(
-            offset: const Offset(0, -30),
-            child: Container(
-              width: 56,
-              height: 56,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: mom.promoPeach,
-                border: Border.all(color: mom.surface, width: 3),
-                boxShadow: MomElevation.fab,
+          // Sits in the normal nav-bar row, aligned like the other tabs'
+          // labels — this is what actually gives the Stack its 42px height.
+          Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
+          // The 56px avatar circle is explicitly centered and raised above
+          // the bar via Positioned (real layout), not a paint-only
+          // Transform — so it's never off-center and never overflows.
+          Positioned(
+            bottom: 14,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 56,
+                height: 56,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: mom.promoPeach,
+                  border: Border.all(color: mom.surface, width: 3),
+                  boxShadow: MomElevation.fab,
+                ),
+                child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
               ),
-              child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
             ),
-          ),
-          Transform.translate(
-            offset: const Offset(0, -22),
-            child: Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
           ),
         ],
       ),
