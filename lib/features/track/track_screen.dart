@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/models/plan.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/currency_provider.dart';
 import '../../core/providers/service_providers.dart';
@@ -215,7 +216,9 @@ class _HealthCard extends StatelessWidget {
                     children: [
                       Text('Health', style: MomText.cardTitle(mom.ink)),
                       Text(
-                        goals == null ? 'Set your goals to start tracking' : '$waterCount/${goals.waterTarget} water · ${workoutMinutes}/${goals.workoutTargetMinutes}m active',
+                        goalsSnapshot == null
+                            ? 'Set your goals to start tracking'
+                            : '$waterCount/${goalsSnapshot.waterTarget} water · $workoutMinutes/${goalsSnapshot.workoutTargetMinutes}m active',
                         style: MomText.meta(mom.inkMuted),
                       ),
                     ],
