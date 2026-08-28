@@ -127,31 +127,34 @@ class _MomNavItem extends StatelessWidget {
       onTap: onTap,
       child: Stack(
         clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
         children: [
-          // Sits in the normal nav-bar row, aligned like the other tabs'
-          // labels — this is what actually gives the Stack its 42px height.
-          Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
-          // The 56px avatar circle is explicitly centered and raised above
-          // the bar via Positioned (real layout), not a paint-only
-          // Transform — so it's never off-center and never overflows.
+          // The circle and its label are one Column, so they can never
+          // overlap — positioned low in the bar (near its bottom edge) so
+          // the badge sits grounded rather than floating, while still
+          // poking up above the bar via Clip.none.
           Positioned(
-            bottom: 14,
+            bottom: 2,
             left: 0,
             right: 0,
-            child: Center(
-              child: Container(
-                width: 56,
-                height: 56,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: mom.promoPeach,
-                  border: Border.all(color: mom.surface, width: 3),
-                  boxShadow: MomElevation.fab,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  padding: const EdgeInsets.all(3),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: mom.promoPeach,
+                    border: Border.all(color: mom.surface, width: 3),
+                    boxShadow: MomElevation.fab,
+                  ),
+                  child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
                 ),
-                child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
-              ),
+                const SizedBox(height: 2),
+                Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
+              ],
             ),
           ),
         ],

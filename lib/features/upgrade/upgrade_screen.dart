@@ -305,7 +305,7 @@ class _PlansViewState extends ConsumerState<_PlansView> {
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
                       children: [
-                        for (final label in const ['Unlimited tasks', 'Unlimited chats', 'Financial tracking', 'Health tracking', 'More check-ins'])
+                        for (final label in const ['Unlimited tasks', 'Unlimited chats', 'Financial tracking', 'Health tracking'])
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(color: mom.shell, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill)),
