@@ -85,7 +85,8 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
         );
       }
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('addTask failed: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(friendlyError(e))),

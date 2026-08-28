@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/task_item.dart';
@@ -73,7 +74,8 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
         if (t.id == id) return t;
       }
       return null;
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('toggleDone failed: $e\n$st');
       state = [
         for (final t in state)
           if (t.id == id) t.copyWith(done: !newDone) else t,
@@ -92,7 +94,8 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     try {
       await ref.read(tasksRepositoryProvider).setDone(taskId: id, userId: userId, done: done, date: day);
       return true;
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('setDoneForDay failed: $e\n$st');
       return false;
     }
   }
@@ -103,7 +106,8 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     try {
       await ref.read(tasksRepositoryProvider).archiveTask(id);
       await NotificationService.cancelTaskReminder(id);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('archiveTask failed: $e\n$st');
       state = previous;
       rethrow;
     }
