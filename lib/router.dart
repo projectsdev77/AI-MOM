@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/preview_mode.dart';
 import 'core/routing/go_router_refresh_stream.dart';
+import 'features/chat/chat_history_screen.dart';
 import 'features/chat/chat_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/onboarding/onboarding_flow.dart';
@@ -42,6 +43,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/track/health',
       builder: (context, state) => const HealthDetailScreen(),
+    ),
+    GoRoute(
+      path: '/chat/history',
+      builder: (context, state) => const ChatHistoryScreen(),
     ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),

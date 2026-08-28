@@ -15,7 +15,6 @@ import '../../core/theme/mom_tokens.dart';
 import '../../core/theme/mom_typography.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/mom_components.dart';
-import 'chat_history_screen.dart';
 
 const _suggestions = [
   'How am I doing today?',
@@ -52,6 +51,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _startNewChat() {
+    setState(() {
+      _sessionId = null;
+      _messages.clear();
+      _error = null;
+      _atWeeklyLimit = false;
+    });
   }
 
   Future<void> _loadHistory(String sessionId) async {
@@ -112,10 +120,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           _ChatHeader(
             avatarStyle: momAvatar,
+            onNewChat: _startNewChat,
             onHistory: () async {
-              final selected = await Navigator.of(context).push<String>(
-                MaterialPageRoute(builder: (_) => const ChatHistoryScreen()),
-              );
+              final selected = await context.push<String>('/chat/history');
               if (selected != null && selected != _sessionId) {
                 setState(() => _sessionId = selected);
                 _loadHistory(selected);
@@ -220,8 +227,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _ChatHeader extends StatelessWidget {
-  const _ChatHeader({required this.avatarStyle, required this.onHistory});
+  const _ChatHeader({required this.avatarStyle, required this.onNewChat, required this.onHistory});
   final MomAvatarStyle avatarStyle;
+  final VoidCallback onNewChat;
   final VoidCallback onHistory;
 
   @override
@@ -249,6 +257,15 @@ class _ChatHeader extends StatelessWidget {
                     Text('Mom', style: MomText.cardTitle(mom.ink)),
                     Text('Checks in a few times a day', style: MomText.rowSub(mom.inkMuted)),
                   ],
+                ),
+              ),
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton(
+                  icon: Icon(LucideIcons.plus, color: mom.inkSoft),
+                  tooltip: 'New chat',
+                  onPressed: onNewChat,
                 ),
               ),
               SizedBox(
