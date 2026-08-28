@@ -14,17 +14,24 @@ import '../../core/widgets/primary_button.dart';
 /// Bottom sheet to add a task or habit. Recurrence is just a field on
 /// the same form — see the planning note that tasks and habits are one
 /// entity, not two features.
-Future<void> showAddTaskSheet(BuildContext context) {
+///
+/// [forDay] is whichever calendar day is currently selected on the
+/// screen the sheet was opened from — a one-off task belongs to its
+/// `created_at` day, so without this it would always land on today even
+/// while browsing a different day.
+Future<void> showAddTaskSheet(BuildContext context, {DateTime? forDay}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const _AddTaskSheet(),
+    builder: (context) => _AddTaskSheet(forDay: forDay),
   );
 }
 
 class _AddTaskSheet extends ConsumerStatefulWidget {
-  const _AddTaskSheet();
+  const _AddTaskSheet({this.forDay});
+
+  final DateTime? forDay;
 
   @override
   ConsumerState<_AddTaskSheet> createState() => _AddTaskSheetState();
@@ -71,11 +78,18 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
     if (title.isEmpty) return;
     setState(() => _saving = true);
     try {
+      final target = widget.forDay;
+      final now = DateTime.now();
+      final isTargetToday = target == null ||
+          (target.year == now.year && target.month == now.month && target.day == now.day);
       final taskId = await ref.read(tasksProvider.notifier).addTask(
             title: title,
             category: _customSelected ? _customCategoryController.text.trim() : _category.name,
             recurrence: _recurrence,
             dueTime: _dueTimeString,
+            createdAt: isTargetToday
+                ? null
+                : DateTime(target.year, target.month, target.day, now.hour, now.minute, now.second),
           );
       if (taskId != null && _dueTimeString != null) {
         await NotificationService.scheduleTaskReminder(

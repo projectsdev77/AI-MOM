@@ -42,7 +42,7 @@ class DashboardScreen extends ConsumerWidget {
       );
       return;
     }
-    showAddTaskSheet(context);
+    showAddTaskSheet(context, forDay: ref.read(selectedTaskDayProvider));
   }
 
   @override

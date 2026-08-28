@@ -32,7 +32,7 @@ class TasksScreen extends ConsumerWidget {
       );
       return;
     }
-    showAddTaskSheet(context);
+    showAddTaskSheet(context, forDay: ref.read(selectedTaskDayProvider));
   }
 
   @override
@@ -47,7 +47,8 @@ class TasksScreen extends ConsumerWidget {
     final momAvatar = ref.watch(effectiveMomAvatarProvider);
     final dayTasks = dayTasksAsync.valueOrNull ?? const <TaskItem>[];
     final isToday = _isSameDay(selectedDay, DateTime.now());
-    final completedToday = allTasks.where((t) => t.done).length;
+    final todayTasks = allTasks.where((t) => t.appliesToDay(DateTime.now())).toList();
+    final completedToday = todayTasks.where((t) => t.done).length;
 
     final bestStreak = allTasks.where((t) => t.isHabit).fold<int>(0, (best, t) => t.streakCount > best ? t.streakCount : best);
     final activeItemsValue = plan.isFull ? '${allTasks.length}' : '${allTasks.length}/${plan.maxActiveTasks}';
@@ -82,7 +83,7 @@ class TasksScreen extends ConsumerWidget {
                     children: [
                       MomAvatar(style: momAvatar, mood: mood, showMoodBadge: false, size: 28),
                       const SizedBox(width: 8),
-                      Text('$completedToday of ${allTasks.length} done', style: MomText.meta(mom.ink)),
+                      Text('$completedToday of ${todayTasks.length} done', style: MomText.meta(mom.ink)),
                     ],
                   ),
                 ),
@@ -95,7 +96,7 @@ class TasksScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.momSectionGap),
             Row(
               children: [
-                Expanded(child: MomStatCard(icon: LucideIcons.check, tintIndex: 0, value: '$completedToday/${allTasks.length}', caption: 'Done today')),
+                Expanded(child: MomStatCard(icon: LucideIcons.check, tintIndex: 0, value: '$completedToday/${todayTasks.length}', caption: 'Done today')),
                 const SizedBox(width: AppSpacing.momRowGap),
                 Expanded(child: MomStatCard(icon: LucideIcons.flame, tintIndex: 1, value: '$bestStreak day${bestStreak == 1 ? '' : 's'}', caption: 'Best streak')),
                 const SizedBox(width: AppSpacing.momRowGap),

@@ -122,6 +122,7 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     required String category,
     RecurrenceType recurrence = RecurrenceType.none,
     String? dueTime,
+    DateTime? createdAt,
   }) async {
     final userId = ref.read(authServiceProvider).currentUser?.id;
     if (userId == null) return null;
@@ -131,6 +132,7 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
           category: category,
           recurrence: recurrence,
           dueTime: dueTime,
+          createdAt: createdAt,
         );
     await refresh();
     return id;
