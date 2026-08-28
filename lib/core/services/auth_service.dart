@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/deep_links.dart';
 import '../config/env.dart';
 import 'purchases_service.dart';
 import 'push_service.dart';
@@ -42,22 +43,20 @@ class AuthService {
     await _afterSignIn();
   }
 
+  /// [redirectTo] points at this app's custom URL scheme (see
+  /// deep_links.dart) so the emailed link opens directly into the app —
+  /// landing in main.dart's deep-link listener, which exchanges it for a
+  /// session and fires AuthChangeEvent.passwordRecovery. The router then
+  /// sends that session to /reset-password instead of /dashboard (see
+  /// password_recovery_flag.dart) until finishPasswordRecovery is called.
   Future<void> sendPasswordReset(String email) {
-    return _client.auth.resetPasswordForEmail(email);
+    return _client.auth.resetPasswordForEmail(email, redirectTo: passwordResetRedirectUrl);
   }
 
-  /// Completes the reset [sendPasswordReset] started, using the 6-digit
-  /// code from that email rather than a deep-linked confirmation URL —
-  /// this app has no custom URL scheme registered on either platform, so
-  /// a link-based flow would have nowhere to land back in the app.
-  /// verifyOTP itself establishes a signed-in session on success, which
-  /// is what actually lets updateUser change the password afterward.
-  Future<void> resetPasswordWithCode({
-    required String email,
-    required String code,
-    required String newPassword,
-  }) async {
-    await _client.auth.verifyOTP(email: email, token: code, type: OtpType.recovery);
+  /// Sets the new password for the session a password-recovery deep link
+  /// just established — no old password needed, since the recovery link
+  /// itself is what proved the account is theirs.
+  Future<void> finishPasswordRecovery(String newPassword) async {
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 

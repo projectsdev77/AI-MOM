@@ -42,6 +42,7 @@ dependencies:
   package_info_plus: ^9.0.1
   intl: ^0.20.3
   supabase_flutter: ^2.17.2
+  app_links: ^6.0.0
   purchases_flutter: ^10.9.1
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^8.1.0
