@@ -151,6 +151,43 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _changeName(BuildContext context, WidgetRef ref, String currentName) async {
+    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+    if (userId == null) return;
+    final controller = TextEditingController(text: currentName);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(hintText: 'Your name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+              try {
+                await ref.read(profileRepositoryProvider).updateName(userId: userId, name: name);
+                ref.invalidate(profileProvider);
+                if (context.mounted) Navigator.pop(context);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _changeEmail(BuildContext context, WidgetRef ref, String currentEmail) async {
     final controller = TextEditingController(text: currentEmail);
     await showDialog(
@@ -191,63 +228,89 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    var obscure = true;
+    final oldController = TextEditingController();
+    final newController = TextEditingController();
+    var obscureOld = true;
+    var obscureNew = true;
+    String? error;
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Change password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                obscureText: obscure,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  hintText: 'New password',
-                  suffixIcon: IconButton(
-                    icon: Icon(obscure ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
-                    tooltip: obscure ? 'Show password' : 'Hide password',
-                    onPressed: () => setState(() => obscure = !obscure),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: oldController,
+                  autofocus: true,
+                  obscureText: obscureOld,
+                  onChanged: (_) => setState(() => error = null),
+                  decoration: InputDecoration(
+                    hintText: 'Current password',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureOld ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
+                      tooltip: obscureOld ? 'Show password' : 'Hide password',
+                      onPressed: () => setState(() => obscureOld = !obscureOld),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final requirement in PasswordRequirement.values)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    children: [
-                      Icon(
-                        requirement.isMet(controller.text) ? LucideIcons.circleCheck : LucideIcons.circle,
-                        size: 14,
-                        color: requirement.isMet(controller.text)
-                            ? context.mom.doneOrange
-                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        requirement.label,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: requirement.isMet(controller.text) ? context.mom.doneOrange : null,
-                            ),
-                      ),
-                    ],
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: newController,
+                  obscureText: obscureNew,
+                  onChanged: (_) => setState(() => error = null),
+                  decoration: InputDecoration(
+                    hintText: 'New password',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
+                      tooltip: obscureNew ? 'Show password' : 'Hide password',
+                      onPressed: () => setState(() => obscureNew = !obscureNew),
+                    ),
                   ),
                 ),
-            ],
+                const SizedBox(height: AppSpacing.sm),
+                for (final requirement in PasswordRequirement.values)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          requirement.isMet(newController.text) ? LucideIcons.circleCheck : LucideIcons.circle,
+                          size: 14,
+                          color: requirement.isMet(newController.text)
+                              ? context.mom.doneOrange
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          requirement.label,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: requirement.isMet(newController.text) ? context.mom.doneOrange : null,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (error != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(error!, style: TextStyle(color: context.mom.danger, fontSize: 12.5)),
+                ],
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             TextButton(
-              onPressed: isStrongPassword(controller.text)
+              onPressed: (oldController.text.isNotEmpty && isStrongPassword(newController.text))
                   ? () async {
                       try {
-                        await ref.read(authServiceProvider).updatePassword(controller.text);
+                        await ref.read(authServiceProvider).changePassword(
+                              currentPassword: oldController.text,
+                              newPassword: newController.text,
+                            );
                         if (context.mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -255,9 +318,7 @@ class SettingsScreen extends ConsumerWidget {
                           );
                         }
                       } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
-                        }
+                        setState(() => error = friendlyAuthError(e));
                       }
                     }
                   : null,
@@ -334,7 +395,12 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.momSectionGap),
             _Group(title: 'Account', rows: [
-              _Row(icon: LucideIcons.user, label: 'Profile', value: user?.userMetadata?['name'] as String? ?? ''),
+              _Row(
+                icon: LucideIcons.user,
+                label: 'Name',
+                value: (profile?['name'] as String?) ?? '',
+                onTap: () => _changeName(context, ref, (profile?['name'] as String?) ?? ''),
+              ),
               _Row(
                 icon: LucideIcons.mail,
                 label: 'Change email',

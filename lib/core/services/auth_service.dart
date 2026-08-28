@@ -48,7 +48,16 @@ class AuthService {
     await _client.auth.updateUser(UserAttributes(email: newEmail));
   }
 
-  Future<void> updatePassword(String newPassword) async {
+  /// Supabase's own updateUser(password:) will happily change the
+  /// password for whoever holds the current session, with no old
+  /// password required — so this re-authenticates with [currentPassword]
+  /// first (throwing if it's wrong) before applying [newPassword].
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    final email = currentUser?.email;
+    if (email == null) {
+      throw const AuthException('No signed-in account to change the password for.');
+    }
+    await _client.auth.signInWithPassword(email: email, password: currentPassword);
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
