@@ -13,28 +13,27 @@ habits, spending, and health, and checks in on you in character.
 
 ## Setup
 
+The Supabase/RevenueCat/Google/Firebase projects already exist — use
+the existing credentials (handed off separately), not new accounts.
+
 1. Install [Flutter](https://docs.flutter.dev/get-started/install).
-2. Create accounts: [Supabase](https://supabase.com), [Google AI
-   Studio](https://aistudio.google.com) (Gemini key), [RevenueCat](https://www.revenuecat.com),
-   Google Cloud Console (OAuth client for Google Sign-In).
-3. Run every file in `supabase/migrations/` in order, in your Supabase
-   project's SQL editor.
-4. Deploy the edge functions:
-   ```
-   supabase login
-   supabase link --project-ref your-project-ref
-   supabase functions deploy mom-chat delete-account revenuecat-webhook send-nudges
-   supabase secrets set GEMINI_API_KEY=your-key       # optional, see .env.example
-   supabase secrets set REVENUECAT_WEBHOOK_SECRET=make-up-a-random-value
-   ```
-   Add that same webhook secret in RevenueCat → Webhooks.
-5. Copy `config/local.json.example` to `config/local.json` and fill in
-   your keys (`.env.example` lists where each one comes from). Never
-   commit this file — it's gitignored.
-6. Run:
+2. Copy `config/local.json.example` to `config/local.json` and fill in
+   the existing project's keys (`.env.example` lists what each one is).
+   Never commit this file — it's gitignored.
+3. Run:
    ```
    flutter run --dart-define-from-file=config/local.json
    ```
+
+Database migrations (`supabase/migrations/`) and edge functions
+(`mom-chat`, `delete-account`, `revenuecat-webhook`, `send-nudges`) are
+already deployed on the existing Supabase project. Only re-run them if
+setting up against a different project:
+```
+supabase login
+supabase link --project-ref your-project-ref
+supabase functions deploy mom-chat delete-account revenuecat-webhook send-nudges
+```
 
 ## Not implemented yet
 
