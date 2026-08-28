@@ -13,6 +13,7 @@ import '../../core/models/plan.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/services/purchases_service.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
@@ -317,6 +318,8 @@ class SettingsScreen extends ConsumerWidget {
                             const SnackBar(content: Text('Password updated.')),
                           );
                         }
+                      } on WrongCurrentPasswordException {
+                        setState(() => error = 'Your current password is wrong.');
                       } catch (e) {
                         setState(() => error = friendlyAuthError(e));
                       }

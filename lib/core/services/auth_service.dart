@@ -9,6 +9,11 @@ import '../config/env.dart';
 import 'purchases_service.dart';
 import 'push_service.dart';
 
+/// Thrown by [AuthService.changePassword] when [currentPassword] doesn't
+/// match the signed-in account, so the UI can show an exact "your
+/// current password is wrong" message instead of a generic fallback.
+class WrongCurrentPasswordException implements Exception {}
+
 /// Email/password + Google + Apple, per the planning decision — no other
 /// social providers, no phone auth.
 class AuthService {
@@ -57,7 +62,15 @@ class AuthService {
     if (email == null) {
       throw const AuthException('No signed-in account to change the password for.');
     }
-    await _client.auth.signInWithPassword(email: email, password: currentPassword);
+    // Re-authenticating with the already-known-valid email can only
+    // realistically fail here because currentPassword is wrong — so any
+    // failure from this specific call is reported as that, rather than
+    // trying to pattern-match the SDK's exact error text/type.
+    try {
+      await _client.auth.signInWithPassword(email: email, password: currentPassword);
+    } catch (_) {
+      throw WrongCurrentPasswordException();
+    }
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
