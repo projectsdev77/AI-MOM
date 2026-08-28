@@ -152,11 +152,13 @@ final tasksForSelectedDayProvider = FutureProvider.autoDispose<List<TaskItem>>((
   return [for (final t in matching) t.copyWith(done: doneIds.contains(t.id))];
 });
 
-/// Rolling completion score -> mood, per the planning doc's mood rule.
+/// Today's completion score -> mood, per the planning doc's mood rule.
+/// Filtered to tasks that actually apply to today — a task due on
+/// another day shouldn't count against (or for) today's mood.
 final momMoodProvider = Provider<MomMood>((ref) {
-  final tasks = ref.watch(tasksProvider);
-  if (tasks.isEmpty) return MomMood.neutral;
-  final doneRatio = tasks.where((t) => t.done).length / tasks.length;
+  final todayTasks = ref.watch(tasksProvider).where((t) => t.appliesToDay(DateTime.now())).toList();
+  if (todayTasks.isEmpty) return MomMood.neutral;
+  final doneRatio = todayTasks.where((t) => t.done).length / todayTasks.length;
   final score = doneRatio * 100;
   if (score >= 80) return MomMood.proud;
   if (score >= 55) return MomMood.neutral;
