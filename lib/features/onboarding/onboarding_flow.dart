@@ -127,12 +127,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       setState(() => _error = 'Enter your email above first, then tap "Forgot password?" again.');
       return;
     }
+    setState(() => _error = null);
     try {
       await ref.read(authServiceProvider).sendPasswordReset(email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('If that email has an account, a reset link is on its way.')),
+          const SnackBar(content: Text('If that email has an account, a reset code is on its way.')),
         );
+        await showResetPasswordSheet(context, email: email);
       }
     } catch (e) {
       setState(() => _error = friendlyAuthError(e));
@@ -1054,6 +1056,154 @@ class _PasswordRequirements extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Finishes what [AuthService.sendPasswordReset] started: the code from
+/// that email, plus a new password. Supabase's verifyOTP call itself
+/// signs the account in on success, so once this sheet closes the
+/// router's auth-state listener takes over and lands on /dashboard —
+/// same as a normal login.
+Future<void> showResetPasswordSheet(BuildContext context, {required String email}) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => _ResetPasswordSheet(email: email),
+  );
+}
+
+class _ResetPasswordSheet extends ConsumerStatefulWidget {
+  const _ResetPasswordSheet({required this.email});
+  final String email;
+
+  @override
+  ConsumerState<_ResetPasswordSheet> createState() => _ResetPasswordSheetState();
+}
+
+class _ResetPasswordSheetState extends ConsumerState<_ResetPasswordSheet> {
+  final _codeController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscure = true;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  bool get _canSubmit =>
+      _codeController.text.trim().isNotEmpty && isStrongPassword(_passwordController.text) && !_submitting;
+
+  Future<void> _submit() async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authServiceProvider).resetPasswordWithCode(
+            email: widget.email,
+            code: _codeController.text.trim(),
+            newPassword: _passwordController.text,
+          );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated — logging you in.')),
+        );
+      }
+    } catch (e) {
+      setState(() => _error = friendlyAuthError(e));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mom = context.mom;
+    final fieldDecoration = InputDecoration(
+      filled: true,
+      fillColor: mom.surface,
+      hintStyle: MomText.placeholder(mom.placeholderText),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.momGutter, vertical: AppSpacing.md),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+        borderSide: BorderSide(color: mom.espresso, width: 1.5),
+      ),
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.momGutter, AppSpacing.md, AppSpacing.momGutter, AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: mom.shell,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusSheet)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                decoration: BoxDecoration(color: mom.fieldBorder, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill)),
+              ),
+            ),
+            Text('Reset your password', style: MomText.sheetTitle(mom.ink)),
+            const SizedBox(height: 6),
+            Text(
+              'Enter the code we sent to ${widget.email}, and pick a new password.',
+              style: MomText.body(mom.inkSoft),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            TextField(
+              controller: _codeController,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              enabled: !_submitting,
+              onChanged: (_) => setState(() {}),
+              style: MomText.body(mom.ink),
+              decoration: fieldDecoration.copyWith(hintText: 'Reset code'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _passwordController,
+              obscureText: _obscure,
+              enabled: !_submitting,
+              onChanged: (_) => setState(() {}),
+              style: MomText.body(mom.ink),
+              decoration: fieldDecoration.copyWith(
+                hintText: 'New password (min. 8 characters)',
+                suffixIcon: IconButton(
+                  icon: Icon(_obscure ? LucideIcons.eye : LucideIcons.eyeOff, size: 20, color: mom.inkMuted),
+                  tooltip: _obscure ? 'Show password' : 'Hide password',
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _PasswordRequirements(password: _passwordController.text),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(_error!, style: MomText.meta(mom.danger)),
+            ],
+            const SizedBox(height: AppSpacing.lg),
+            PrimaryButton(
+              label: _submitting ? 'Resetting…' : 'Reset password',
+              onPressed: _canSubmit ? _submit : null,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

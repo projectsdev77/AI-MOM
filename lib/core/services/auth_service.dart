@@ -46,6 +46,21 @@ class AuthService {
     return _client.auth.resetPasswordForEmail(email);
   }
 
+  /// Completes the reset [sendPasswordReset] started, using the 6-digit
+  /// code from that email rather than a deep-linked confirmation URL —
+  /// this app has no custom URL scheme registered on either platform, so
+  /// a link-based flow would have nowhere to land back in the app.
+  /// verifyOTP itself establishes a signed-in session on success, which
+  /// is what actually lets updateUser change the password afterward.
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _client.auth.verifyOTP(email: email, token: code, type: OtpType.recovery);
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   /// Supabase emails a confirmation link to the new address before the
   /// change actually takes effect — `currentUser.email` stays the old
   /// one until that's clicked.

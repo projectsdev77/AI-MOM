@@ -48,6 +48,9 @@ String friendlyAuthError(Object error) {
   if (message.contains('email not confirmed')) {
     return 'Please confirm your email before logging in.';
   }
+  if (message.contains('otp') || message.contains('token has expired') || message.contains('token is invalid')) {
+    return "That code is wrong or has expired — request a new one.";
+  }
   if (message.contains('password') && (message.contains('short') || message.contains('at least'))) {
     return 'Password needs to be at least 8 characters.';
   }
