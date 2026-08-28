@@ -62,6 +62,11 @@ class HealthDetailScreen extends ConsumerWidget {
     final goals = goalsAsync.value;
     final today = todayAsync.valueOrNull ?? const HealthToday(waterCount: 0, workoutMinutes: 0);
     final activities = activitiesAsync.valueOrNull ?? const [];
+    // "Exercise" is the day's total moving time — logged workouts plus
+    // every "Staying active" activity's minutes — not just whichever one
+    // was logged most recently.
+    final activityMinutes = activities.fold<int>(0, (sum, a) => sum + a.todayMinutes);
+    final totalExerciseMinutes = today.workoutMinutes + activityMinutes;
 
     if (goals == null) {
       return Scaffold(
@@ -87,7 +92,7 @@ class HealthDetailScreen extends ConsumerWidget {
         ? 'Water'
         : today.sleepHours == null
             ? 'Sleep'
-            : today.workoutMinutes == 0
+            : totalExerciseMinutes == 0
                 ? 'Exercise'
                 : null;
 
@@ -151,9 +156,9 @@ class HealthDetailScreen extends ConsumerWidget {
                     icon: LucideIcons.dumbbell,
                     tintIndex: 0,
                     label: 'Exercise',
-                    value: '${today.workoutMinutes}m',
+                    value: '${totalExerciseMinutes}m',
                     goal: '${goals.workoutTargetMinutes}m',
-                    progress: (today.workoutMinutes / goals.workoutTargetMinutes).clamp(0.0, 1.0),
+                    progress: (totalExerciseMinutes / goals.workoutTargetMinutes).clamp(0.0, 1.0),
                     onQuickAdd: () => showLogWorkoutSheet(context, ref),
                   ),
                 ),
@@ -331,6 +336,8 @@ class _ActivityRow extends ConsumerWidget {
     final mom = context.mom;
     final tint = mom.tints[tintIndex % mom.tints.length];
     final tintIcon = mom.tintIcons[tintIndex % mom.tintIcons.length];
+    final progress = (activity.todayMinutes / activity.targetMinutes).clamp(0.0, 1.0);
+    final overMinutes = activity.todayMinutes - activity.targetMinutes;
     return Slidable(
       key: ValueKey(activity.id),
       endActionPane: ActionPane(
@@ -365,6 +372,20 @@ class _ActivityRow extends ConsumerWidget {
                 children: [
                   Text(activity.title, style: MomText.rowLabel(mom.ink)),
                   Text('${activity.todayMinutes}/${activity.targetMinutes}min today', style: MomText.rowSub(mom.inkMuted)),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 5,
+                      backgroundColor: mom.hairline,
+                      valueColor: AlwaysStoppedAnimation(mom.doneOrange),
+                    ),
+                  ),
+                  if (overMinutes > 0) ...[
+                    const SizedBox(height: 4),
+                    Text('${overMinutes}m over goal — look at you!', style: MomText.meta(mom.doneOrange)),
+                  ],
                 ],
               ),
             ),
