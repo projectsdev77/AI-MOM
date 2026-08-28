@@ -195,13 +195,6 @@ class _BenefitsView extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.momSectionGap),
-        MomMessageCard(
-          avatarStyle: momAvatar,
-          expression: MomExpression.mad,
-          eyebrow: 'Fair warning',
-          message: "Full Mom checks in more often, not less. If you wanted me quieter, this isn't that.",
-        ),
-        const SizedBox(height: AppSpacing.momSectionGap),
         PrimaryButton(label: 'See plans', onPressed: onSeePlans),
         const SizedBox(height: AppSpacing.sm),
         Center(
