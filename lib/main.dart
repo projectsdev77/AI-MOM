@@ -10,6 +10,7 @@ import 'core/providers/account_reset.dart';
 import 'core/providers/currency_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/routing/password_recovery_flag.dart';
+import 'core/services/auth_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/purchases_service.dart';
 import 'core/services/push_service.dart';
@@ -26,6 +27,14 @@ void main() async {
   await PurchasesService.init();
   await NotificationService.init();
   await PushService.init();
+  // Most launches resume an already-signed-in session rather than going
+  // through signInWithEmail/Google/Apple, which is the only place a
+  // push token otherwise gets registered — without this, a device would
+  // only ever pick up a token the one time someone happens to sign in
+  // interactively.
+  if (Supabase.instance.client.auth.currentSession != null) {
+    await AuthService(Supabase.instance.client).refreshDeviceRegistration();
+  }
   listenForPasswordRecovery();
   // Catches the app's custom URL scheme (see deep_links.dart) when a
   // password-reset email's link is tapped, exchanging its token for a

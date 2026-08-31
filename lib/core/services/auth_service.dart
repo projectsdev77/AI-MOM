@@ -148,6 +148,16 @@ class AuthService {
     }
   }
 
+  /// Same as [_afterSignIn], but public so main.dart can call it for a
+  /// session that's just *resuming* on app launch (Supabase persists
+  /// sessions locally, so most launches never go through
+  /// signInWithEmail/Google/Apple at all). Without this, a device's push
+  /// token would only ever get registered the one time someone happens
+  /// to interactively sign in — never on a relaunch, never after
+  /// Firebase gets configured partway through testing, never after a
+  /// token rotates while the app was closed.
+  Future<void> refreshDeviceRegistration() => _afterSignIn();
+
   Future<void> signOut() async {
     await PurchasesService.logOut();
     await _client.auth.signOut();
