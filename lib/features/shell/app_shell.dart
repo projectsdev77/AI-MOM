@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../core/theme/app_colors.dart';
+import '../../core/providers/app_state_provider.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/mom_mood.dart';
+import '../../core/theme/mom_tokens.dart';
+import '../../core/theme/mom_typography.dart';
+import '../../core/widgets/mom_avatar.dart';
 
 /// Bottom-nav shell wrapping the 5 main tabs. Uses a StatefulShellRoute so
 /// each tab keeps its own scroll/navigation state when switching back.
-class AppShell extends StatelessWidget {
+///
+/// The center tab is Mom (was labelled "Chat") — same destination, same
+/// branch index, just rendered as a raised avatar circle instead of an icon.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -14,41 +23,78 @@ class AppShell extends StatelessWidget {
   static const _tabs = [
     (icon: LucideIcons.house, label: 'Home'),
     (icon: LucideIcons.listChecks, label: 'Tasks'),
-    (icon: LucideIcons.messageCircle, label: 'Chat'),
+    (icon: null, label: 'Mom'),
     (icon: LucideIcons.chartNoAxesColumn, label: 'Track'),
     (icon: LucideIcons.settings, label: 'Settings'),
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mom = context.mom;
+    final momAvatar = ref.watch(effectiveMomAvatarProvider);
+    void goToMom() => navigationShell.goBranch(2, initialLocation: 2 == navigationShell.currentIndex);
     return Scaffold(
-      body: navigationShell,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          navigationShell,
+          // The Mom avatar circle visually pokes up above the 42px-tall
+          // nav bar row via overflow (see _MomNavItem), but a tap there
+          // never reaches it — hit-testing is bounded by that row's own
+          // layout size, not by where content is merely painted. This
+          // invisible target, sized to the body's own bottom edge (which
+          // Scaffold already aligns with the nav bar's top edge), covers
+          // the actual raised circle so the whole thing is tappable, not
+          // just the sliver of it that happens to sit inside the row.
+          Positioned(
+            bottom: -12,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: goToMom,
+                child: const SizedBox(width: 72, height: 66),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          border: Border(
-            top: BorderSide(color: theme.dividerTheme.color ?? AppColors.borderLight),
-          ),
+          color: mom.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusNav)),
+          boxShadow: MomElevation.nav,
         ),
         child: SafeArea(
-          child: SizedBox(
-            height: 60,
-            child: Row(
-              children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  Expanded(
-                    child: _NavItem(
-                      icon: _tabs[i].icon,
-                      label: _tabs[i].label,
-                      selected: navigationShell.currentIndex == i,
-                      onTap: () => navigationShell.goBranch(
-                        i,
-                        initialLocation: i == navigationShell.currentIndex,
-                      ),
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+            child: SizedBox(
+              height: 42,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < _tabs.length; i++)
+                    Expanded(
+                      child: i == 2
+                          ? _MomNavItem(
+                              style: momAvatar,
+                              selected: navigationShell.currentIndex == i,
+                              onTap: goToMom,
+                            )
+                          : _NavItem(
+                              icon: _tabs[i].icon!,
+                              label: _tabs[i].label,
+                              selected: navigationShell.currentIndex == i,
+                              onTap: () => navigationShell.goBranch(
+                                i,
+                                initialLocation: i == navigationShell.currentIndex,
+                              ),
+                            ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -72,23 +118,103 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = selected ? AppColors.accent : theme.colorScheme.onSurface.withValues(alpha: 0.45);
+    final mom = context.mom;
+    final color = selected ? mom.espresso : mom.navInactive;
     return InkWell(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 22, color: color),
+          Icon(icon, size: 21, color: color),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          Text(label, style: MomText.navLabel(color, active: selected)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The center "Mom" tab — raised 56px peach circle holding Mom's avatar,
+/// replacing the old plain chat-bubble icon.
+class _MomNavItem extends StatelessWidget {
+  const _MomNavItem({required this.style, required this.selected, required this.onTap});
+
+  final MomAvatarStyle style;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final mom = context.mom;
+    return InkWell(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // The circle and its label are one Column, so they can never
+          // overlap — positioned low in the bar (near its bottom edge) so
+          // the badge sits grounded rather than floating, while still
+          // poking up above the bar via Clip.none.
+          Positioned(
+            bottom: 2,
+            left: 0,
+            right: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  padding: const EdgeInsets.all(3),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: mom.promoPeach,
+                    border: Border.all(color: mom.surface, width: 3),
+                    boxShadow: MomElevation.fab,
+                  ),
+                  child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
+                ),
+                const SizedBox(height: 2),
+                Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The 56px espresso FAB used on Home/Tasks/Financial for the primary
+/// create action. Screens position it themselves via
+/// `Scaffold.floatingActionButton`.
+class MomFab extends StatelessWidget {
+  const MomFab({super.key, required this.onPressed, this.tooltip});
+
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final mom = context.mom;
+    return Container(
+      decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: MomElevation.fab),
+      child: FloatingActionButton(
+        // Home/Tasks/Financial all stay mounted at once under the bottom
+        // nav's StatefulShellRoute, so their FABs would otherwise share
+        // Flutter's implicit default hero tag and collide on any route
+        // transition ("multiple heroes share the same tag"). This FAB never
+        // needs to hero-morph into another screen's FAB, so just opt out.
+        heroTag: null,
+        onPressed: onPressed,
+        tooltip: tooltip,
+        backgroundColor: mom.espresso,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        highlightElevation: 0,
+        shape: const CircleBorder(),
+        child: const Icon(LucideIcons.plus, size: 24),
       ),
     );
   }

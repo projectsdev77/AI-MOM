@@ -18,6 +18,20 @@
 	<string>ai_mom</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<!-- Lets a tapped password-reset email link open this app directly
+	     (see lib/core/config/deep_links.dart) instead of a browser with
+	     nowhere to send the user back to. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).resetpassword</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>aimom</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>

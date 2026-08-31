@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="AI MOM avatar">
+          <defs><clipPath id="mclip4"><circle cx="160" cy="160" r="160"></circle></clipPath></defs>
+          <g clip-path="url(#mclip4)">
+            <rect x="0" y="0" width="320" height="320" fill="#F3D9D6"></rect>
+            <path d="M72 200 C58 106 100 50 160 50 C220 50 262 106 248 200 C244 232 238 250 230 258 C222 234 216 214 214 196 L106 196 C104 214 98 234 90 258 C82 250 76 232 72 200 Z" fill="#F0EDE6"></path>
+            <path d="M140 184 h40 v38 h-40 z" fill="#E4AE98"></path>
+            <path d="M28 320 C34 256 92 224 160 224 C228 224 286 256 292 320 Z" fill="#7E4257"></path>
+            <path d="M130 216 C140 210 180 210 190 216 C192 226 188 234 160 234 C132 234 128 226 130 216 Z" fill="#8E4E63"></path>
+            <ellipse cx="104" cy="156" rx="10" ry="14" fill="#F7D0BC"></ellipse>
+            <ellipse cx="216" cy="156" rx="10" ry="14" fill="#F7D0BC"></ellipse>
+            <path d="M102 136 C102 94 128 72 160 72 C192 72 218 94 218 136 C218 178 192 206 160 206 C128 206 102 178 102 136 Z" fill="#F7D0BC"></path>
+            <path d="M98 132 C100 86 126 62 160 62 C196 62 222 88 222 132 C206 106 184 96 158 99 C130 102 110 114 98 132 Z" fill="#F0EDE6"></path>
+            <path d="M124 128 C132 118 146 119 153 126" fill="none" stroke="#9B8078" stroke-width="3.5" stroke-linecap="round"></path>
+            <path d="M198 124 C190 118 176 120 170 127" fill="none" stroke="#9B8078" stroke-width="3.5" stroke-linecap="round"></path>
+            <ellipse cx="137" cy="146" rx="5.5" ry="6.5" fill="#3A2B2B"></ellipse>
+            <ellipse cx="183" cy="146" rx="5.5" ry="6.5" fill="#3A2B2B"></ellipse>
+            <path d="M160 150 C155 165 152 169 158 171" fill="none" stroke="#E4AE98" stroke-width="2.5" stroke-linecap="round"></path>
+            <path d="M144 183 C154 190 170 188 178 180" fill="none" stroke="#C4685C" stroke-width="4" stroke-linecap="round"></path>
+            <circle cx="122" cy="166" r="9" fill="#E8836B" opacity="0.28"></circle>
+            <circle cx="198" cy="166" r="9" fill="#E8836B" opacity="0.28"></circle>
+            <path d="M116 138 l-10 -4 M204 138 l10 -4" fill="none" stroke="#E4AE98" stroke-width="1.8" stroke-linecap="round" opacity="0.7"></path>
+            <path d="M132 192 C140 198 152 199 160 197" fill="none" stroke="#E4AE98" stroke-width="1.8" stroke-linecap="round" opacity="0.7"></path>
+          </g>
+        </svg>

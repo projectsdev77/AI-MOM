@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/task_item.dart';
@@ -73,27 +74,13 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
         if (t.id == id) return t;
       }
       return null;
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('toggleDone failed: $e\n$st');
       state = [
         for (final t in state)
           if (t.id == id) t.copyWith(done: !newDone) else t,
       ];
       return null;
-    }
-  }
-
-  /// For toggling completion on a day other than today (browsing via
-  /// the Tasks page calendar) — doesn't touch `state`, which only ever
-  /// tracks "done today," just writes the completion row directly. The
-  /// UI invalidates [tasksForSelectedDayProvider] afterward to refetch.
-  Future<bool> setDoneForDay({required String id, required DateTime day, required bool done}) async {
-    final userId = ref.read(authServiceProvider).currentUser?.id;
-    if (userId == null) return false;
-    try {
-      await ref.read(tasksRepositoryProvider).setDone(taskId: id, userId: userId, done: done, date: day);
-      return true;
-    } catch (_) {
-      return false;
     }
   }
 
@@ -103,7 +90,8 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     try {
       await ref.read(tasksRepositoryProvider).archiveTask(id);
       await NotificationService.cancelTaskReminder(id);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('archiveTask failed: $e\n$st');
       state = previous;
       rethrow;
     }
@@ -118,6 +106,7 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     required String category,
     RecurrenceType recurrence = RecurrenceType.none,
     String? dueTime,
+    DateTime? createdAt,
   }) async {
     final userId = ref.read(authServiceProvider).currentUser?.id;
     if (userId == null) return null;
@@ -127,6 +116,7 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
           category: category,
           recurrence: recurrence,
           dueTime: dueTime,
+          createdAt: createdAt,
         );
     await refresh();
     return id;
@@ -162,11 +152,13 @@ final tasksForSelectedDayProvider = FutureProvider.autoDispose<List<TaskItem>>((
   return [for (final t in matching) t.copyWith(done: doneIds.contains(t.id))];
 });
 
-/// Rolling completion score -> mood, per the planning doc's mood rule.
+/// Today's completion score -> mood, per the planning doc's mood rule.
+/// Filtered to tasks that actually apply to today — a task due on
+/// another day shouldn't count against (or for) today's mood.
 final momMoodProvider = Provider<MomMood>((ref) {
-  final tasks = ref.watch(tasksProvider);
-  if (tasks.isEmpty) return MomMood.neutral;
-  final doneRatio = tasks.where((t) => t.done).length / tasks.length;
+  final todayTasks = ref.watch(tasksProvider).where((t) => t.appliesToDay(DateTime.now())).toList();
+  if (todayTasks.isEmpty) return MomMood.neutral;
+  final doneRatio = todayTasks.where((t) => t.done).length / todayTasks.length;
   final score = doneRatio * 100;
   if (score >= 80) return MomMood.proud;
   if (score >= 55) return MomMood.neutral;

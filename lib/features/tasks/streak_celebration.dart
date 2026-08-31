@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/mom_tokens.dart';
+import '../../core/theme/mom_typography.dart';
 import '../../core/widgets/primary_button.dart';
 
 /// Full-page celebration shown right after checking off a habit pushes
@@ -56,7 +57,7 @@ class _StreakCelebrationScreenState extends State<_StreakCelebrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return GestureDetector(
       onTap: () => Navigator.of(context).maybePop(),
       child: Scaffold(
@@ -66,8 +67,8 @@ class _StreakCelebrationScreenState extends State<_StreakCelebrationScreen> {
             margin: const EdgeInsets.all(AppSpacing.xl),
             padding: const EdgeInsets.all(AppSpacing.xl),
             decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSheet),
+              color: mom.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.momRadiusSheet),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -75,26 +76,26 @@ class _StreakCelebrationScreenState extends State<_StreakCelebrationScreen> {
                 Container(
                   width: 72,
                   height: 72,
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.accent),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: mom.doneOrange),
                   alignment: Alignment.center,
                   child: const Icon(LucideIcons.flame, color: Colors.white, size: 36),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
                   '${widget.streakCount} day streak',
-                  style: theme.textTheme.headlineLarge,
+                  style: MomText.screenTitle(mom.ink),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   widget.taskTitle,
-                  style: theme.textTheme.titleSmall,
+                  style: MomText.body(mom.inkSoft),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   _line,
-                  style: theme.textTheme.bodyMedium,
+                  style: MomText.body(mom.ink),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.xl),

@@ -5,9 +5,15 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/deep_links.dart';
 import '../config/env.dart';
 import 'purchases_service.dart';
 import 'push_service.dart';
+
+/// Thrown by [AuthService.changePassword] when [currentPassword] doesn't
+/// match the signed-in account, so the UI can show an exact "your
+/// current password is wrong" message instead of a generic fallback.
+class WrongCurrentPasswordException implements Exception {}
 
 /// Email/password + Google + Apple, per the planning decision — no other
 /// social providers, no phone auth.
@@ -37,8 +43,21 @@ class AuthService {
     await _afterSignIn();
   }
 
+  /// [redirectTo] points at this app's custom URL scheme (see
+  /// deep_links.dart) so the emailed link opens directly into the app —
+  /// landing in main.dart's deep-link listener, which exchanges it for a
+  /// session and fires AuthChangeEvent.passwordRecovery. The router then
+  /// sends that session to /reset-password instead of /dashboard (see
+  /// password_recovery_flag.dart) until finishPasswordRecovery is called.
   Future<void> sendPasswordReset(String email) {
-    return _client.auth.resetPasswordForEmail(email);
+    return _client.auth.resetPasswordForEmail(email, redirectTo: passwordResetRedirectUrl);
+  }
+
+  /// Sets the new password for the session a password-recovery deep link
+  /// just established — no old password needed, since the recovery link
+  /// itself is what proved the account is theirs.
+  Future<void> finishPasswordRecovery(String newPassword) async {
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
   /// Supabase emails a confirmation link to the new address before the
@@ -48,7 +67,24 @@ class AuthService {
     await _client.auth.updateUser(UserAttributes(email: newEmail));
   }
 
-  Future<void> updatePassword(String newPassword) async {
+  /// Supabase's own updateUser(password:) will happily change the
+  /// password for whoever holds the current session, with no old
+  /// password required — so this re-authenticates with [currentPassword]
+  /// first (throwing if it's wrong) before applying [newPassword].
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    final email = currentUser?.email;
+    if (email == null) {
+      throw const AuthException('No signed-in account to change the password for.');
+    }
+    // Re-authenticating with the already-known-valid email can only
+    // realistically fail here because currentPassword is wrong — so any
+    // failure from this specific call is reported as that, rather than
+    // trying to pattern-match the SDK's exact error text/type.
+    try {
+      await _client.auth.signInWithPassword(email: email, password: currentPassword);
+    } catch (_) {
+      throw WrongCurrentPasswordException();
+    }
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 

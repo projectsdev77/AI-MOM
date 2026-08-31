@@ -89,15 +89,21 @@ class TasksRepository {
   }
 
   /// [category] is the raw value to store — either a built-in
-  /// [TaskCategory]'s `.name`, or free-typed custom text. Returns the
-  /// new task's id, so a reminder notification can be scheduled
-  /// against it when [dueTime] is set.
+  /// [TaskCategory]'s `.name`, or free-typed custom text. [createdAt]
+  /// lets a task be added as of a calendar day other than right now
+  /// (e.g. adding while browsing a different day) — `appliesToDay` for
+  /// a one-off task, and the weekday anchor for a weekly one, are both
+  /// derived from `created_at`, so leaving it to the DB's `now()`
+  /// default would always file the task under today regardless of
+  /// which day was selected. Returns the new task's id, so a reminder
+  /// notification can be scheduled against it when [dueTime] is set.
   Future<String> addTask({
     required String userId,
     required String title,
     required String category,
     RecurrenceType recurrence = RecurrenceType.none,
     String? dueTime,
+    DateTime? createdAt,
   }) async {
     final row = await _client
         .from('tasks')
@@ -107,6 +113,7 @@ class TasksRepository {
           'category': category,
           'recurrence': recurrence.name,
           if (dueTime != null) 'due_time': dueTime,
+          if (createdAt != null) 'created_at': createdAt.toIso8601String(),
         })
         .select('id')
         .single();
@@ -117,9 +124,8 @@ class TasksRepository {
     required String taskId,
     required String userId,
     required bool done,
-    DateTime? date,
   }) {
-    final dateStr = date != null ? _dateOnly(date) : _today();
+    final dateStr = _today();
     if (done) {
       return _client.from('task_completions').insert({
         'task_id': taskId,

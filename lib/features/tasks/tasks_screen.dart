@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -8,11 +9,14 @@ import '../../core/models/plan.dart';
 import '../../core/models/task_item.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/mom_mood.dart';
+import '../../core/theme/mom_tokens.dart';
+import '../../core/theme/mom_typography.dart';
 import '../../core/utils/friendly_error.dart';
-import '../../core/widgets/category_chip.dart';
-import '../../core/widgets/streak_check.dart';
+import '../../core/widgets/mom_avatar.dart';
+import '../../core/widgets/mom_components.dart';
+import '../shell/app_shell.dart';
 import 'add_task_sheet.dart';
 import 'streak_celebration.dart';
 
@@ -21,100 +25,185 @@ bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.mont
 class TasksScreen extends ConsumerWidget {
   const TasksScreen({super.key});
 
+  void _quickAdd(BuildContext context, WidgetRef ref, List<TaskItem> allTasks, AppPlan plan) {
+    if (!plan.isFull && allTasks.length >= plan.maxActiveTasks) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Basic Mom covers up to ${plan.maxActiveTasks} active items — upgrade for unlimited.')),
+      );
+      return;
+    }
+    showAddTaskSheet(context, forDay: ref.read(selectedTaskDayProvider));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final mom = context.mom;
     final allTasks = ref.watch(tasksProvider);
     final dayTasksAsync = ref.watch(tasksForSelectedDayProvider);
     final selectedDay = ref.watch(selectedTaskDayProvider);
     final plan = ref.watch(planProvider);
-    final theme = Theme.of(context);
-    final overLimit = !plan.isFull && allTasks.length > plan.maxActiveTasks;
+    final mood = ref.watch(momMoodProvider);
+    final message = ref.watch(momMessageProvider);
+    final momAvatar = ref.watch(effectiveMomAvatarProvider);
     final dayTasks = dayTasksAsync.valueOrNull ?? const <TaskItem>[];
     final isToday = _isSameDay(selectedDay, DateTime.now());
+    final todayTasks = allTasks.where((t) => t.appliesToDay(DateTime.now())).toList();
+    final completedToday = todayTasks.where((t) => t.done).length;
+
+    final bestStreak = allTasks.where((t) => t.isHabit).fold<int>(0, (best, t) => t.streakCount > best ? t.streakCount : best);
+    final activeItemsValue = plan.isFull ? '${allTasks.length}' : '${allTasks.length}/${plan.maxActiveTasks}';
 
     final healthTasks = plan.isFull ? dayTasks.where((t) => t.category == TaskCategory.health).toList() : const <TaskItem>[];
     final myTasks = plan.isFull ? dayTasks.where((t) => t.category != TaskCategory.health).toList() : dayTasks;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tasks & habits')),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.accent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        onPressed: () {
-          if (!plan.isFull && allTasks.length >= plan.maxActiveTasks) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Basic Mom covers up to ${plan.maxActiveTasks} active items — upgrade for unlimited.')),
-            );
-            return;
-          }
-          showAddTaskSheet(context);
-        },
-        child: const Icon(LucideIcons.plus),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.sm,
-          AppSpacing.lg,
-          AppSpacing.xxl,
-        ),
-        children: [
-          const _TasksCalendar(),
-          const SizedBox(height: AppSpacing.lg),
-          if (!plan.isFull)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: Text(
-                overLimit
-                    ? 'Basic Mom covers up to ${plan.maxActiveTasks} active items — upgrade for unlimited.'
-                    : '${allTasks.length} of ${plan.maxActiveTasks} active items used on Basic Mom.',
-                style: theme.textTheme.bodySmall,
-              ),
+      floatingActionButton: MomFab(tooltip: 'Add task', onPressed: () => _quickAdd(context, ref, allTasks, plan)),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.momGutter, AppSpacing.lg, AppSpacing.momGutter, 96),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Tasks & habits', style: MomText.screenTitle(mom.ink)),
+                      const SizedBox(height: 2),
+                      Text(DateFormat('EEEE, MMMM d').format(DateTime.now()), style: MomText.body(mom.inkSoft)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+                  decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill), boxShadow: MomElevation.card),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      MomAvatar(style: momAvatar, mood: mood, showMoodBadge: false, size: 28),
+                      const SizedBox(width: 8),
+                      Text('$completedToday of ${todayTasks.length} done', style: MomText.meta(mom.ink)),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          if (dayTasksAsync.isLoading && dayTasks.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-              child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
-            )
-          else if (dayTasks.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-              child: Text(
-                isToday ? 'Nothing on your list today.' : 'Nothing on the list for this day.',
-                style: theme.textTheme.bodyMedium,
-              ),
-            )
-          else if (!plan.isFull)
-            for (final task in myTasks)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _TaskRow(task: task, day: selectedDay, isToday: isToday),
-              )
-          else ...[
-            if (myTasks.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Text('My Tasks', style: theme.textTheme.titleSmall),
-              ),
-              for (final task in myTasks)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: _TaskRow(task: task, day: selectedDay, isToday: isToday),
-                ),
+            const SizedBox(height: AppSpacing.momSectionGap),
+            const _TasksCalendarCard(),
+            const SizedBox(height: AppSpacing.momSectionGap),
+            MomMessageCard(avatarStyle: momAvatar, expression: MomExpression.mad, eyebrow: 'Keeping score', message: message),
+            const SizedBox(height: AppSpacing.momSectionGap),
+            Row(
+              children: [
+                Expanded(child: MomStatCard(icon: LucideIcons.check, tintIndex: 0, value: '$completedToday/${todayTasks.length}', caption: 'Done today')),
+                const SizedBox(width: AppSpacing.momRowGap),
+                Expanded(child: MomStatCard(icon: LucideIcons.flame, tintIndex: 1, value: '$bestStreak day${bestStreak == 1 ? '' : 's'}', caption: 'Best streak')),
+                const SizedBox(width: AppSpacing.momRowGap),
+                Expanded(child: MomStatCard(icon: LucideIcons.listChecks, tintIndex: 4, value: activeItemsValue, caption: 'Active items')),
+              ],
+            ),
+            if (!plan.isFull) ...[
+              const SizedBox(height: AppSpacing.momRowGap),
+              _PlanUsageCard(activeCount: allTasks.length, maxActive: plan.maxActiveTasks),
             ],
-            if (healthTasks.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.momSectionGap),
+            Text(
+              isToday ? "Today's list" : DateFormat('EEEE, MMM d').format(selectedDay),
+              style: MomText.section(mom.ink),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (dayTasksAsync.isLoading && dayTasks.isEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.sm),
-                child: Text('Health Tracker', style: theme.textTheme.titleSmall),
-              ),
-              for (final task in healthTasks)
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                child: Center(child: CircularProgressIndicator(color: mom.espresso)),
+              )
+            else if (dayTasks.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                child: Text(
+                  isToday ? 'Nothing on your list today.' : 'Nothing on the list for this day.',
+                  style: MomText.body(mom.inkMuted),
+                ),
+              )
+            else if (!plan.isFull)
+              for (var i = 0; i < myTasks.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
+                  child: _TaskRow(task: myTasks[i], isToday: isToday, tintIndex: i),
+                )
+            else ...[
+              if (myTasks.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: _TaskRow(task: task, day: selectedDay, isToday: isToday),
+                  child: Text('My tasks', style: MomText.meta(mom.inkMuted, size: 12)),
                 ),
+                for (var i = 0; i < myTasks.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
+                    child: _TaskRow(task: myTasks[i], isToday: isToday, tintIndex: i),
+                  ),
+              ],
+              if (healthTasks.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.sm),
+                  child: Text('Health tracker', style: MomText.meta(mom.inkMuted, size: 12)),
+                ),
+                for (var i = 0; i < healthTasks.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
+                    child: _TaskRow(task: healthTasks[i], isToday: isToday, tintIndex: myTasks.length + i),
+                  ),
+              ],
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanUsageCard extends StatelessWidget {
+  const _PlanUsageCard({required this.activeCount, required this.maxActive});
+  final int activeCount;
+  final int maxActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final mom = context.mom;
+    final overLimit = activeCount > maxActive;
+    final ratio = maxActive > 0 ? (activeCount / maxActive).clamp(0.0, 1.0) : 0.0;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), boxShadow: MomElevation.card),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  overLimit ? 'Basic Mom covers up to $maxActive active items.' : '$activeCount of $maxActive active items used on Basic Mom.',
+                  style: MomText.meta(mom.inkSoft),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 6,
+                    backgroundColor: mom.fieldBorder,
+                    valueColor: AlwaysStoppedAnimation(mom.doneOrange),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          GestureDetector(
+            onTap: () => context.push('/upgrade'),
+            child: Text('Upgrade', style: MomText.control(mom.espresso)),
+          ),
         ],
       ),
     );
@@ -125,14 +214,14 @@ class TasksScreen extends ConsumerWidget {
 /// grid. Tapping a day (either view) selects it, which filters the task
 /// list below to whatever belongs on that day — see
 /// [TaskItem.appliesToDay].
-class _TasksCalendar extends ConsumerStatefulWidget {
-  const _TasksCalendar();
+class _TasksCalendarCard extends ConsumerStatefulWidget {
+  const _TasksCalendarCard();
 
   @override
-  ConsumerState<_TasksCalendar> createState() => _TasksCalendarState();
+  ConsumerState<_TasksCalendarCard> createState() => _TasksCalendarCardState();
 }
 
-class _TasksCalendarState extends ConsumerState<_TasksCalendar> {
+class _TasksCalendarCardState extends ConsumerState<_TasksCalendarCard> {
   bool _expanded = false;
   late DateTime _displayedMonth;
 
@@ -145,28 +234,25 @@ class _TasksCalendarState extends ConsumerState<_TasksCalendar> {
 
   void _selectDay(DateTime day) {
     ref.read(selectedTaskDayProvider.notifier).state = DateTime(day.year, day.month, day.day);
+    if (_expanded) setState(() => _expanded = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     final now = DateTime.now();
     final selectedDay = ref.watch(selectedTaskDayProvider);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-        border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
-      ),
+      decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPanelSm), boxShadow: MomElevation.card),
       child: Column(
         children: [
           Row(
             children: [
               if (_expanded) ...[
                 IconButton(
-                  icon: const Icon(LucideIcons.chevronLeft, size: 18),
+                  icon: Icon(LucideIcons.chevronLeft, size: 18, color: mom.inkSoft),
                   onPressed: () => setState(() {
                     _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month - 1, 1);
                   }),
@@ -175,11 +261,11 @@ class _TasksCalendarState extends ConsumerState<_TasksCalendar> {
                   child: Text(
                     DateFormat('MMMM yyyy').format(_displayedMonth),
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.titleSmall,
+                    style: MomText.rowSub(mom.ink),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(LucideIcons.chevronRight, size: 18),
+                  icon: Icon(LucideIcons.chevronRight, size: 18, color: mom.inkSoft),
                   onPressed: () => setState(() {
                     _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month + 1, 1);
                   }),
@@ -187,7 +273,7 @@ class _TasksCalendarState extends ConsumerState<_TasksCalendar> {
               ] else
                 const Spacer(),
               IconButton(
-                icon: Icon(_expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown, size: 18),
+                icon: Icon(_expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown, size: 18, color: mom.inkMuted),
                 tooltip: _expanded ? 'Show week' : 'Show month',
                 onPressed: () => setState(() {
                   _expanded = !_expanded;
@@ -244,7 +330,7 @@ class _MonthGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     final now = DateTime.now();
     final firstDay = DateTime(month.year, month.month, 1);
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
@@ -256,16 +342,14 @@ class _MonthGrid extends StatelessWidget {
         Row(
           children: [
             for (final label in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
-              Expanded(
-                child: Center(child: Text(label, style: theme.textTheme.labelSmall)),
-              ),
+              Expanded(child: Center(child: Text(label, style: MomText.meta(mom.inkMuted)))),
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.85),
           itemCount: leadingBlanks + daysInMonth,
           itemBuilder: (context, index) {
             if (index < leadingBlanks) return const SizedBox.shrink();
@@ -275,6 +359,7 @@ class _MonthGrid extends StatelessWidget {
               isToday: _isSameDay(day, now),
               isSelected: _isSameDay(day, selectedDay),
               onTap: () => onDayTap(day),
+              showWeekdayLabel: false,
             );
           },
         ),
@@ -285,47 +370,44 @@ class _MonthGrid extends StatelessWidget {
 }
 
 class _DayCell extends StatelessWidget {
-  const _DayCell({required this.day, required this.isToday, required this.isSelected, required this.onTap});
+  const _DayCell({
+    required this.day,
+    required this.isToday,
+    required this.isSelected,
+    required this.onTap,
+    this.showWeekdayLabel = true,
+  });
   final DateTime day;
   final bool isToday;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool showWeekdayLabel;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            DateFormat('E').format(day).substring(0, 1),
-            style: theme.textTheme.labelSmall,
-          ),
-          const SizedBox(height: 6),
+          if (showWeekdayLabel) ...[
+            Text(DateFormat('E').format(day).substring(0, 1), style: MomText.meta(isToday || isSelected ? mom.ink : mom.inkMuted)),
+            const SizedBox(height: 6),
+          ],
           Container(
             width: 32,
             height: 32,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isSelected
-                  ? AppColors.accent
-                  : (isToday ? theme.colorScheme.secondary : Colors.transparent),
-              border: isSelected && isToday
-                  ? Border.all(color: theme.colorScheme.secondary, width: 2)
-                  : null,
+              color: isSelected ? mom.ink : Colors.transparent,
+              border: isToday && !isSelected ? Border.all(color: mom.fieldBorder, width: 2) : null,
             ),
             child: Text(
               '${day.day}',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: isSelected
-                    ? Colors.white
-                    : (isToday ? theme.colorScheme.onSecondary : theme.colorScheme.onSurface),
-                fontWeight: (isToday || isSelected) ? FontWeight.w700 : FontWeight.w500,
-              ),
+              style: MomText.rowLabel(isSelected ? Colors.white : mom.inkSoft, selected: isToday || isSelected),
             ),
           ),
         ],
@@ -335,16 +417,17 @@ class _DayCell extends StatelessWidget {
 }
 
 class _TaskRow extends ConsumerWidget {
-  const _TaskRow({required this.task, required this.day, required this.isToday});
+  const _TaskRow({required this.task, required this.isToday, required this.tintIndex});
 
   final TaskItem task;
-  final DateTime day;
   final bool isToday;
+  final int tintIndex;
 
   /// Reveal-then-tap delete: swiping only opens the action pane (nothing
   /// is removed yet), a confirm dialog guards the actual deletion, and a
   /// cancel just closes the pane back up rather than deleting anything.
   Future<void> _confirmAndArchive(BuildContext context, WidgetRef ref) async {
+    final mom = context.mom;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -354,7 +437,7 @@ class _TaskRow extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.moodDisappointed)),
+            child: Text('Delete', style: TextStyle(color: mom.danger)),
           ),
         ],
       ),
@@ -369,9 +452,7 @@ class _TaskRow extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         Slidable.of(context)?.close();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
@@ -391,24 +472,16 @@ class _TaskRow extends ConsumerWidget {
       }
       return;
     }
-    // A day other than today: just flip that day's completion row —
-    // no optimistic streak/celebration UI, since a streak is inherently
-    // about consecutive days ending today, not a retroactive edit.
-    final ok = await ref
-        .read(tasksProvider.notifier)
-        .setDoneForDay(id: task.id, day: day, done: !task.done);
-    if (ok) {
-      ref.invalidate(tasksForSelectedDayProvider);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Something went wrong on our end. Please try again.')),
-      );
-    }
+    // Browsing a day other than today is read-only — only today's tasks
+    // can be checked off.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Let's focus on today's tasks")),
+    );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return Slidable(
       key: ValueKey(task.id),
       endActionPane: ActionPane(
@@ -417,53 +490,21 @@ class _TaskRow extends ConsumerWidget {
         children: [
           SlidableAction(
             onPressed: (actionContext) => _confirmAndArchive(actionContext, ref),
-            backgroundColor: AppColors.moodDisappointed,
+            backgroundColor: mom.danger,
             foregroundColor: Colors.white,
             icon: LucideIcons.trash2,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+            borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
           ),
         ],
       ),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-          border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
-        ),
-        child: Row(
-          children: [
-            CategoryIconBadge(icon: task.category.icon, tint: task.category.tint),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      decoration: task.done ? TextDecoration.lineThrough : null,
-                      color: task.done
-                          ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      task.categoryLabel,
-                      if (task.dueTimeLabel != null) task.dueTimeLabel!,
-                      if (task.isHabit) '${task.streakCount} day streak',
-                    ].join('  •  '),
-                    style: theme.textTheme.labelSmall,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            StreakCheck(done: task.done, onTap: () => _toggle(context, ref)),
-          ],
-        ),
+      child: MomTaskRow(
+        icon: task.category.icon,
+        tintIndex: tintIndex,
+        metaLabel: task.categoryLabel,
+        title: task.title,
+        sub: task.dueTimeLabel ?? (task.isHabit ? '${task.streakCount} day streak' : null),
+        done: task.done,
+        onToggle: () => _toggle(context, ref),
       ),
     );
   }

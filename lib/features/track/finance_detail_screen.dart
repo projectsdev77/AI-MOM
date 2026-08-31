@@ -3,13 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/currency_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
 import '../../core/repositories/finance_repository.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/mom_mood.dart';
+import '../../core/theme/mom_tokens.dart';
+import '../../core/theme/mom_typography.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/mom_components.dart';
+import '../shell/app_shell.dart';
 import 'finance_widgets.dart';
 
 class FinanceDetailScreen extends ConsumerWidget {
@@ -17,7 +22,8 @@ class FinanceDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
+    final momAvatar = ref.watch(effectiveMomAvatarProvider);
     final expensesAsync = ref.watch(expensesThisMonthProvider);
     final overallBudgetAsync = ref.watch(overallBudgetCentsProvider);
     final categoryBudgetsAsync = ref.watch(categoryBudgetsProvider);
@@ -34,10 +40,22 @@ class FinanceDetailScreen extends ConsumerWidget {
 
     final totalSpent = expenses.fold<int>(0, (sum, e) => sum + e.amountCents);
     final overallBudget = overallBudgetAsync.valueOrNull;
+    final now = DateTime.now();
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final dailyAverageCents = now.day > 0 ? (totalSpent / now.day).round() : 0;
+    final daysLeft = daysInMonth - now.day;
+    final biggestCategory = categories.isEmpty ? null : categories.first;
 
     return Scaffold(
+      backgroundColor: mom.shell,
       appBar: AppBar(
-        title: const Text('Financial tracking'),
+        backgroundColor: mom.shell,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(LucideIcons.chevronLeft, size: 22, color: mom.espresso),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text('Financial tracking', style: MomText.cardTitle(mom.ink)),
         actions: [
           _CurrencyBadge(current: currency, onChanged: (code) {
             ref.read(currencyProvider.notifier).state = code;
@@ -46,44 +64,57 @@ class FinanceDetailScreen extends ConsumerWidget {
           const SizedBox(width: AppSpacing.sm),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.accent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        onPressed: () => showAddExpenseSheet(context),
-        child: const Icon(LucideIcons.plus),
-      ),
+      floatingActionButton: MomFab(tooltip: 'Log an expense', onPressed: () => showAddExpenseSheet(context)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.momGutter, AppSpacing.sm, AppSpacing.momGutter, 96),
         children: [
-          _TotalBudgetCard(
+          _SummaryPanel(
             spentCents: totalSpent,
             budgetCents: overallBudget,
             currency: currency,
-            onSetBudget: () => showSetBudgetDialog(context, ref, currentCents: overallBudget),
+            onEditBudget: () => showSetBudgetDialog(context, ref, currentCents: overallBudget),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('By category', style: theme.textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.momSectionGap),
+          Row(
+            children: [
+              Expanded(child: MomStatCard(icon: LucideIcons.trendingUp, tintIndex: 1, value: formatMoney(dailyAverageCents, currency), caption: 'Daily average')),
+              const SizedBox(width: AppSpacing.momRowGap),
+              Expanded(child: MomStatCard(icon: LucideIcons.receipt, tintIndex: 2, value: '${expenses.length}', caption: 'Expenses logged')),
+              const SizedBox(width: AppSpacing.momRowGap),
+              Expanded(child: MomStatCard(icon: LucideIcons.calendarDays, tintIndex: 4, value: '$daysLeft', caption: 'Days left')),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.momSectionGap),
+          Text('By category', style: MomText.section(mom.ink)),
           const SizedBox(height: AppSpacing.sm),
           if (categories.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-              child: Center(
-                child: Text('No spending logged yet this month.', style: theme.textTheme.bodySmall),
-              ),
+              child: Center(child: Text('No spending logged yet this month.', style: MomText.body(mom.inkMuted))),
             )
           else
-            for (final category in categories)
+            for (var i = 0; i < categories.length; i++)
               Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                padding: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
                 child: _CategoryCard(
-                  category: category,
-                  spentCents: spentByCategory[category] ?? 0,
-                  budgetCents: categoryBudgets[category],
+                  category: categories[i],
+                  tintIndex: i,
+                  spentCents: spentByCategory[categories[i]] ?? 0,
+                  totalSpentCents: totalSpent,
+                  budgetCents: categoryBudgets[categories[i]],
                   currency: currency,
-                  expenses: expenses.where((e) => e.category == category).toList(),
+                  expenses: expenses.where((e) => e.category == categories[i]).toList(),
                 ),
               ),
+          const SizedBox(height: AppSpacing.momSectionGap),
+          MomMessageCard(
+            avatarStyle: momAvatar,
+            expression: MomExpression.mad,
+            eyebrow: 'Money talk',
+            message: biggestCategory != null
+                ? '$biggestCategory is where most of it went this month. Worth a look?'
+                : "Log your first expense and I'll start keeping tabs.",
+          ),
         ],
       ),
     );
@@ -97,6 +128,7 @@ class _CurrencyBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mom = context.mom;
     return PopupMenuButton<String>(
       initialValue: current,
       onSelected: onChanged,
@@ -104,13 +136,14 @@ class _CurrencyBadge extends StatelessWidget {
         for (final code in currencySymbols.keys)
           PopupMenuItem(value: code, child: Text('$code (${currencySymbols[code]})')),
       ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(current, style: Theme.of(context).textTheme.bodySmall),
-            const Icon(LucideIcons.chevronDown, size: 14),
+            Text(current, style: MomText.control(mom.ink, size: 12.5)),
+            Icon(LucideIcons.chevronDown, size: 14, color: mom.inkMuted),
           ],
         ),
       ),
@@ -118,69 +151,66 @@ class _CurrencyBadge extends StatelessWidget {
   }
 }
 
-class _TotalBudgetCard extends StatelessWidget {
-  const _TotalBudgetCard({
-    required this.spentCents,
-    required this.budgetCents,
-    required this.currency,
-    required this.onSetBudget,
-  });
+class _SummaryPanel extends StatelessWidget {
+  const _SummaryPanel({required this.spentCents, required this.budgetCents, required this.currency, required this.onEditBudget});
 
   final int spentCents;
   final int? budgetCents;
   final String currency;
-  final VoidCallback onSetBudget;
+  final VoidCallback onEditBudget;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     final ratio = budgetCents != null && budgetCents! > 0 ? (spentCents / budgetCents!).clamp(0.0, 1.0) : 0.0;
     final remaining = budgetCents != null ? budgetCents! - spentCents : null;
+    final over = remaining != null && remaining < 0;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-        border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: mom.promoPeach, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPanel)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('This month', style: theme.textTheme.bodySmall),
-              TextButton(onPressed: onSetBudget, child: Text(budgetCents == null ? 'Set budget' : 'Edit budget')),
+              Text('This month', style: MomText.meta(mom.peachPanelMuted)),
+              GestureDetector(
+                onTap: onEditBudget,
+                child: Text(budgetCents == null ? 'Set budget' : 'Edit budget', style: MomText.control(mom.espresso)),
+              ),
             ],
           ),
-          Text(
-            remaining != null
-                ? (remaining < 0
-                    ? '${formatMoney(-remaining, currency)} over budget'
-                    : '${formatMoney(remaining, currency)} left')
-                : '${formatMoney(spentCents, currency)} spent',
-            style: theme.textTheme.headlineLarge?.copyWith(
-              color: remaining != null && remaining < 0 ? AppColors.moodDisappointed : null,
+          const SizedBox(height: 4),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: remaining != null
+                      ? (over ? formatMoney(-remaining, currency) : formatMoney(remaining, currency))
+                      : formatMoney(spentCents, currency),
+                  style: MomText.bigValue(mom.ink),
+                ),
+                if (remaining != null)
+                  TextSpan(text: over ? ' over budget' : ' left', style: MomText.rowLabel(mom.peachPanelMuted)),
+              ],
             ),
           ),
           if (budgetCents != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              '${formatMoney(spentCents, currency)} of ${formatMoney(budgetCents!, currency)} budget',
-              style: theme.textTheme.bodySmall,
-            ),
             const SizedBox(height: AppSpacing.md),
             ClipRRect(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
               child: LinearProgressIndicator(
                 value: ratio,
                 minHeight: 8,
-                backgroundColor: AppColors.chipPeach,
-                valueColor: AlwaysStoppedAnimation(ratio >= 1 ? AppColors.moodDisappointed : AppColors.accent),
+                backgroundColor: mom.peachOnPeach,
+                valueColor: AlwaysStoppedAnimation(mom.doneOrange),
               ),
             ),
+            const SizedBox(height: 8),
+            Text('${formatMoney(spentCents, currency)} spent · ${formatMoney(budgetCents!, currency)} budget', style: MomText.meta(mom.peachPanelMuted)),
           ],
         ],
       ),
@@ -191,19 +221,24 @@ class _TotalBudgetCard extends StatelessWidget {
 class _CategoryCard extends ConsumerWidget {
   const _CategoryCard({
     required this.category,
+    required this.tintIndex,
     required this.spentCents,
+    required this.totalSpentCents,
     required this.budgetCents,
     required this.currency,
     required this.expenses,
   });
 
   final String category;
+  final int tintIndex;
   final int spentCents;
+  final int totalSpentCents;
   final int? budgetCents;
   final String currency;
   final List<ExpenseRow> expenses;
 
   Future<void> _confirmAndClearBudget(BuildContext context, WidgetRef ref) async {
+    final mom = context.mom;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -213,7 +248,7 @@ class _CategoryCard extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove', style: TextStyle(color: AppColors.moodDisappointed)),
+            child: Text('Remove', style: TextStyle(color: mom.danger)),
           ),
         ],
       ),
@@ -245,39 +280,44 @@ class _CategoryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final ratio = budgetCents != null && budgetCents! > 0 ? (spentCents / budgetCents!).clamp(0.0, 1.0) : null;
-    final fillColor = ratio == null
-        ? null
-        : (ratio >= 1 ? AppColors.moodDisappointed : AppColors.accent).withValues(alpha: 0.16);
+    final mom = context.mom;
+    final tint = mom.tints[tintIndex % mom.tints.length];
+    final tintIcon = mom.tintIcons[tintIndex % mom.tintIcons.length];
+    final share = totalSpentCents > 0 ? (spentCents / totalSpentCents).clamp(0.0, 1.0) : 0.0;
+    final shareWidth = share < 0.04 ? 0.04 : share;
 
-    final card = ClipRRect(
-      borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+    final card = Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
       child: InkWell(
         onTap: () => _showExpenses(context),
-        child: Stack(
+        borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(color: theme.cardTheme.color),
-            if (ratio != null)
-              FractionallySizedBox(
-                widthFactor: ratio,
-                child: Container(height: double.infinity, color: fillColor),
-              ),
-            Container(
-              decoration: BoxDecoration(border: Border.all(color: theme.dividerTheme.color ?? AppColors.borderLight)),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(category, style: theme.textTheme.bodyLarge, overflow: TextOverflow.ellipsis),
-                  ),
-                  Text(
-                    budgetCents != null
-                        ? '${formatMoney(spentCents, currency)}/${formatMoney(budgetCents!, currency)}'
-                        : formatMoney(spentCents, currency),
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ],
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(AppSpacing.momRadiusTile - 1)),
+                  child: Icon(LucideIcons.tag, size: 16, color: tintIcon),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(category, style: MomText.rowLabel(mom.ink), overflow: TextOverflow.ellipsis)),
+                Text(
+                  budgetCents != null ? '${formatMoney(spentCents, currency)}/${formatMoney(budgetCents!, currency)}' : formatMoney(spentCents, currency),
+                  style: MomText.cardTitle(mom.ink),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: shareWidth,
+                child: Container(height: 5, color: tintIcon),
               ),
             ),
           ],
@@ -285,27 +325,24 @@ class _CategoryCard extends ConsumerWidget {
       ),
     );
 
-    if (budgetCents == null) return SizedBox(height: 56, child: card);
+    if (budgetCents == null) return card;
 
-    return SizedBox(
-      height: 56,
-      child: Slidable(
-        key: ValueKey(category),
-        endActionPane: ActionPane(
-          motion: const DrawerMotion(),
-          extentRatio: 0.22,
-          children: [
-            SlidableAction(
-              onPressed: (actionContext) => _confirmAndClearBudget(actionContext, ref),
-              backgroundColor: AppColors.moodDisappointed,
-              foregroundColor: Colors.white,
-              icon: LucideIcons.trash2,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
-            ),
-          ],
-        ),
-        child: card,
+    return Slidable(
+      key: ValueKey(category),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (actionContext) => _confirmAndClearBudget(actionContext, ref),
+            backgroundColor: mom.danger,
+            foregroundColor: Colors.white,
+            icon: LucideIcons.trash2,
+            borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+          ),
+        ],
       ),
+      child: card,
     );
   }
 }
@@ -318,13 +355,13 @@ class _CategoryExpensesSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final mom = context.mom;
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.momGutter, AppSpacing.lg, AppSpacing.momGutter, AppSpacing.xl),
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusSheet)),
+        color: mom.shell,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusSheet)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -333,13 +370,13 @@ class _CategoryExpensesSheet extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(category, style: theme.textTheme.titleLarge),
-              TextButton(
-                onPressed: () {
+              Text(category, style: MomText.cardTitle(mom.ink)),
+              GestureDetector(
+                onTap: () {
                   Navigator.pop(context);
                   showSetCategoryBudgetDialog(context, ref, category: category);
                 },
-                child: const Text('Set budget'),
+                child: Text('Set budget', style: MomText.control(mom.espresso)),
               ),
             ],
           ),
@@ -356,9 +393,9 @@ class _CategoryExpensesSheet extends ConsumerWidget {
                       children: [
                         Text(
                           '${e.spentAt.month}/${e.spentAt.day}${e.note != null && e.note!.isNotEmpty ? ' — ${e.note}' : ''}',
-                          style: theme.textTheme.bodyMedium,
+                          style: MomText.body(mom.inkSoft),
                         ),
-                        Text(formatMoney(e.amountCents, currency), style: theme.textTheme.bodyMedium),
+                        Text(formatMoney(e.amountCents, currency), style: MomText.rowLabel(mom.ink)),
                       ],
                     ),
                   ),

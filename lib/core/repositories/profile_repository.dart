@@ -37,6 +37,10 @@ class ProfileRepository {
     return _client.from('profiles').update({'check_in_frequency': frequency}).eq('id', userId);
   }
 
+  Future<void> updateName({required String userId, required String name}) {
+    return _client.from('profiles').update({'name': name}).eq('id', userId);
+  }
+
   Future<void> updateMomAvatarStyle({required String userId, required String style}) {
     return _client.from('profiles').update({'mom_avatar_style': style}).eq('id', userId);
   }
