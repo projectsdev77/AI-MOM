@@ -604,35 +604,37 @@ class _NameStep extends ConsumerWidget {
     final mom = context.mom;
     return _StepScaffold(
       title: 'What should Mom call you?',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), boxShadow: MomElevation.card),
-            child: TextField(
-              controller: controller,
-              onChanged: (_) => onChanged(),
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              style: MomText.rowLabel(mom.ink, selected: true),
-              cursorColor: mom.doneOrange,
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: 'Your name',
-                hintStyle: MomText.placeholder(mom.placeholderText, size: 15),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), boxShadow: MomElevation.card),
+              child: TextField(
+                controller: controller,
+                onChanged: (_) => onChanged(),
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                style: MomText.rowLabel(mom.ink, selected: true),
+                cursorColor: mom.doneOrange,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: 'Your name',
+                  hintStyle: MomText.placeholder(mom.placeholderText, size: 15),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          MomMessageCard(
-            avatarStyle: ref.watch(momAvatarStyleProvider),
-            expression: MomExpression.happy,
-            eyebrow: 'Mom says',
-            message: "Lovely name. Now let's see what you keep putting off, sweetheart.",
-          ),
-        ],
+            const SizedBox(height: AppSpacing.lg),
+            MomMessageCard(
+              avatarStyle: ref.watch(momAvatarStyleProvider),
+              expression: MomExpression.happy,
+              eyebrow: 'Mom says',
+              message: "Lovely name. Now let's see what you keep putting off, sweetheart.",
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -812,45 +814,47 @@ class _StressorStep extends StatelessWidget {
     return _StepScaffold(
       title: "What's weighing on you most right now?",
       subtitle: "Totally optional — skip if you'd rather not say.",
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            constraints: const BoxConstraints(minHeight: 132),
-            decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                TextField(
-                  controller: controller,
-                  onChanged: (_) => onChanged(),
-                  maxLines: 4,
-                  maxLength: 200,
-                  textCapitalization: TextCapitalization.sentences,
-                  style: MomText.body(mom.ink).copyWith(fontSize: 14),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    counterText: '',
-                    hintText: 'Work deadlines, money, a big life change…',
-                    hintStyle: MomText.placeholder(mom.placeholderText),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              constraints: const BoxConstraints(minHeight: 132),
+              decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: controller,
+                    onChanged: (_) => onChanged(),
+                    maxLines: 4,
+                    maxLength: 200,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: MomText.body(mom.ink).copyWith(fontSize: 14),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      counterText: '',
+                      hintText: 'Work deadlines, money, a big life change…',
+                      hintStyle: MomText.placeholder(mom.placeholderText),
+                    ),
                   ),
-                ),
-                Text('${controller.text.length} / 200', style: MomText.meta(mom.placeholderText, size: 11)),
-              ],
+                  Text('${controller.text.length} / 200', style: MomText.meta(mom.placeholderText, size: 11)),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Consumer(
-            builder: (context, ref, _) => MomMessageCard(
-              avatarStyle: ref.watch(momAvatarStyleProvider),
-              expression: MomExpression.normal,
-              eyebrow: 'Mom says',
-              message: 'Between us. I only bring it up when it helps.',
+            const SizedBox(height: AppSpacing.lg),
+            Consumer(
+              builder: (context, ref, _) => MomMessageCard(
+                avatarStyle: ref.watch(momAvatarStyleProvider),
+                expression: MomExpression.normal,
+                eyebrow: 'Mom says',
+                message: 'Between us. I only bring it up when it helps.',
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
