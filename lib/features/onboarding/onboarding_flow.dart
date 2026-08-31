@@ -188,7 +188,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       // user occasionally needing to re-set them — Supabase's own
       // signInWithIdToken creates the account on first use either way.
       if (!_isLoginMode) await _saveOnboardingAnswers();
-    } catch (e) {
+    } catch (e, st) {
+      // The plugin's actual exception (Credential Manager error code,
+      // Google Play Services status, etc.) is what's needed to diagnose
+      // a social sign-in failure — friendlyAuthError intentionally
+      // hides all of that from the user, so it has to go to the log
+      // instead or every failure looks identical from a bug report.
+      debugPrint('social sign-in failed: $e\n$st');
       setState(() => _error = friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
