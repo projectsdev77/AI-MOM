@@ -36,7 +36,13 @@ const _livingSituationOptions = ['On my own', 'With a partner or spouse', 'With 
 const _livingSituationSubs = ['Nobody else picks up the slack', 'Shared chores, shared blame', 'Kids, parents, or both', 'The dishes are political'];
 const _motivationStyleOptions = ['Gentle encouragement', 'Tough love, tell it straight', 'A mix of both'];
 const _motivationStyleSubs = ['Warm, patient, never sharp', 'She will bring up the streak you dropped', "Kind until you've stalled twice"];
-const _frequencySubs = ['One morning nudge', 'Morning plan, evening review', 'For the deadline weeks', 'You asked for this'];
+const _frequencySubs = [
+  'One morning nudge',
+  'Morning plan, evening review',
+  'For the deadline weeks',
+  'You asked for this',
+  'Testing only — needs cron tightened too',
+];
 
 const _avatarTraits = [
   'Sweet — but she keeps a list.',
