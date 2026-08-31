@@ -134,7 +134,8 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
           color: mom.shell,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusSheet)),
         ),
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -225,6 +226,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
               onPressed: (_canSave && !_saving) ? _save : null,
             ),
           ],
+          ),
         ),
       ),
     );
