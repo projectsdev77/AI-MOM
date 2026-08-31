@@ -54,10 +54,24 @@ class PushService {
   /// Call once signed in — saves this device's token so the
   /// send-nudges function knows where to deliver Mom's nudges, and
   /// keeps it current if Firebase rotates the token later.
+  ///
+  /// A flaky Play Services install (out of date, missing, whatever) can
+  /// make `getToken()` throw — this must never propagate, both because
+  /// it's called unguarded at every app launch (main.dart) where an
+  /// uncaught exception would stop the rest of startup from running,
+  /// and because it's also called from interactive sign-in, where a
+  /// throw here would otherwise surface as a false "sign-in failed" to
+  /// someone whose account sign-in actually succeeded.
   static Future<void> registerToken(Future<void> Function(String token) onToken) async {
     if (!_ready || kIsWeb) return;
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null) await onToken(token);
-    FirebaseMessaging.instance.onTokenRefresh.listen(onToken);
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) await onToken(token);
+      FirebaseMessaging.instance.onTokenRefresh.listen(onToken);
+    } catch (_) {
+      // Push just won't work on this device until whatever's wrong
+      // (usually stale Play Services) is fixed — not worth taking
+      // anything else down over.
+    }
   }
 }
