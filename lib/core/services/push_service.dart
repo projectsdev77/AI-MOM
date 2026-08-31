@@ -27,28 +27,35 @@ class PushService {
   /// No-op until a real Firebase project is configured (see README) —
   /// same "gracefully do nothing instead of crashing" pattern as
   /// [PurchasesService] before a RevenueCat project exists.
+  ///
+  /// Called unguarded from main.dart at every launch, so nothing past
+  /// this point can be allowed to throw either — `requestPermission()`
+  /// still talks to Play Services under the hood, same as `getToken()`
+  /// in [registerToken], and a device with a stale install can fail
+  /// either call the same way.
   static Future<void> init() async {
     if (!Env.isFirebaseConfigured) return;
     try {
       await Firebase.initializeApp(options: _options);
+
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+
+      FirebaseMessaging.onMessage.listen((message) {
+        final notification = message.notification;
+        if (notification != null) {
+          NotificationService.showNow(
+            title: notification.title ?? 'Mom',
+            body: notification.body ?? '',
+          );
+        }
+      });
+
+      _ready = true;
     } catch (_) {
-      return;
+      // Push just won't work on this device — see registerToken's note
+      // on why that's never worth taking startup down over.
     }
-
-    final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(alert: true, badge: true, sound: true);
-
-    FirebaseMessaging.onMessage.listen((message) {
-      final notification = message.notification;
-      if (notification != null) {
-        NotificationService.showNow(
-          title: notification.title ?? 'Mom',
-          body: notification.body ?? '',
-        );
-      }
-    });
-
-    _ready = true;
   }
 
   /// Call once signed in — saves this device's token so the
