@@ -44,6 +44,12 @@ class _TrackFull extends ConsumerWidget {
     final spentCents = expenses.fold<int>(0, (sum, e) => sum + e.amountCents);
     final goals = ref.watch(healthGoalsProvider).valueOrNull;
     final today = ref.watch(healthTodayProvider).valueOrNull;
+    final activities = ref.watch(healthActivitiesProvider).valueOrNull ?? const [];
+    // Same "day's total moving time" combination health_detail_screen.dart
+    // uses — a straight `today.workoutMinutes` read misses every custom
+    // "Staying active" activity someone actually logged against.
+    final activityMinutes = activities.fold<int>(0, (sum, a) => sum + a.todayMinutes);
+    final totalExerciseMinutes = (today?.workoutMinutes ?? 0) + activityMinutes;
 
     final spentByCategory = <String, int>{};
     for (final e in expenses) {
@@ -77,7 +83,12 @@ class _TrackFull extends ConsumerWidget {
             onTap: () => context.push('/track/finance'),
           ),
           const SizedBox(height: AppSpacing.momRowGap),
-          _HealthCard(goals: goals, today: today, onTap: () => context.push('/track/health')),
+          _HealthCard(
+            goals: goals,
+            today: today,
+            workoutMinutes: totalExerciseMinutes,
+            onTap: () => context.push('/track/health'),
+          ),
         ],
       ),
     );
@@ -170,19 +181,23 @@ class _FinanceCard extends StatelessWidget {
 }
 
 class _HealthCard extends StatelessWidget {
-  const _HealthCard({required this.goals, required this.today, required this.onTap});
+  const _HealthCard({required this.goals, required this.today, required this.workoutMinutes, required this.onTap});
   final HealthGoals? goals;
   final HealthToday? today;
+  // Day's total moving time — logged workouts plus every "Staying active"
+  // activity's minutes, same combination health_detail_screen.dart shows,
+  // not just health_logs.workout_minutes on its own.
+  final int workoutMinutes;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final mom = context.mom;
     final waterCount = today?.waterCount ?? 0;
-    final workoutMinutes = today?.workoutMinutes ?? 0;
     final sleepHours = today?.sleepHours;
     final hasAnyLog = goals != null && (waterCount > 0 || sleepHours != null || workoutMinutes > 0);
     final goalsSnapshot = goals;
+    final overMinutes = goalsSnapshot == null ? 0 : workoutMinutes - goalsSnapshot.workoutTargetMinutes;
     final segments = goalsSnapshot == null
         ? null
         : [
@@ -248,7 +263,12 @@ class _HealthCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(hasAnyLog ? 'Logged today' : 'Nothing logged today', style: MomText.meta(mom.inkMuted, size: 11.5)),
+              Text(
+                overMinutes > 0
+                    ? '${overMinutes}m over your active-minutes goal — nice!'
+                    : (hasAnyLog ? 'Logged today' : 'Nothing logged today'),
+                style: MomText.meta(overMinutes > 0 ? mom.doneOrange : mom.inkMuted, size: 11.5),
+              ),
             ],
           ],
         ),

@@ -159,6 +159,9 @@ class HealthDetailScreen extends ConsumerWidget {
                     value: '${totalExerciseMinutes}m',
                     goal: '${goals.workoutTargetMinutes}m',
                     progress: (totalExerciseMinutes / goals.workoutTargetMinutes).clamp(0.0, 1.0),
+                    overNote: totalExerciseMinutes > goals.workoutTargetMinutes
+                        ? '${totalExerciseMinutes - goals.workoutTargetMinutes}m over — nice!'
+                        : null,
                     onQuickAdd: () => showLogWorkoutSheet(context, ref),
                   ),
                 ),
@@ -240,6 +243,7 @@ class _MetricCard extends StatelessWidget {
     required this.goal,
     required this.progress,
     required this.onQuickAdd,
+    this.overNote,
   });
 
   final IconData icon;
@@ -249,6 +253,9 @@ class _MetricCard extends StatelessWidget {
   final String goal;
   final double progress;
   final VoidCallback onQuickAdd;
+  // e.g. "5m over — nice!" when today's total has passed the goal — the
+  // progress bar alone just reads as "full," not "you went past it."
+  final String? overNote;
 
   @override
   Widget build(BuildContext context) {
@@ -289,6 +296,10 @@ class _MetricCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
             child: LinearProgressIndicator(value: progress, minHeight: 5, backgroundColor: mom.hairline, valueColor: AlwaysStoppedAnimation(mom.doneOrange)),
           ),
+          if (overNote != null) ...[
+            const SizedBox(height: 4),
+            Text(overNote!, style: MomText.meta(mom.doneOrange, size: 11)),
+          ],
         ],
       ),
     );
