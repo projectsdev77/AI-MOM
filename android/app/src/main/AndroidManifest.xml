@@ -1,4 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Needed for on-device task reminders (NotificationService). Without
+         these, Android has nothing to grant — the "Alarms & reminders" and
+         notification permission toggles in system Settings stay greyed out
+         and disabled rather than becoming something the user can turn on. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- Lets flutter_local_notifications re-arm scheduled reminders after
+         the phone restarts, since exact alarms don't otherwise survive a
+         reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="ai_mom"
         android:name="${applicationName}"
