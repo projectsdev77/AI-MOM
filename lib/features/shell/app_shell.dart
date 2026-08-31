@@ -33,70 +33,83 @@ class AppShell extends ConsumerWidget {
     final mom = context.mom;
     final momAvatar = ref.watch(effectiveMomAvatarProvider);
     void goToMom() => navigationShell.goBranch(2, initialLocation: 2 == navigationShell.currentIndex);
+    // Scaffold paints bottomNavigationBar *after* (on top of) body, so
+    // anything painted from body that dips into the bar's rectangle via
+    // overflow gets hidden behind the bar's own opaque background —
+    // and anything that stays within body's own bounds to avoid that
+    // can't be hit-tested past those bounds either (Flutter hit-tests
+    // an ancestor's own reported size, not wherever a Positioned/
+    // Clip.none child merely paints outside it). So the raised circle
+    // can't be *painted* from body, and can't be reliably *tapped* from
+    // inside the bar's height-42 Row. The only way to have both is to
+    // give bottomNavigationBar itself a real box tall enough to contain
+    // the whole circle — no overflow anywhere, so ordinary bounds-based
+    // hit-testing just works.
+    const momHeadroom = 40.0;
+    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          navigationShell,
-          // The Mom avatar circle visually pokes up above the 42px-tall
-          // nav bar row via overflow (see _MomNavItem), but a tap there
-          // never reaches it — hit-testing is bounded by that row's own
-          // layout size, not by where content is merely painted. This
-          // invisible target, sized to the body's own bottom edge (which
-          // Scaffold already aligns with the nav bar's top edge), covers
-          // the actual raised circle so the whole thing is tappable, not
-          // just the sliver of it that happens to sit inside the row.
-          Positioned(
-            bottom: -12,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: goToMom,
-                child: const SizedBox(width: 72, height: 66),
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: mom.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusNav)),
-          boxShadow: MomElevation.nav,
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-            child: SizedBox(
-              height: 42,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < _tabs.length; i++)
-                    Expanded(
-                      child: i == 2
-                          ? _MomNavItem(
-                              style: momAvatar,
-                              selected: navigationShell.currentIndex == i,
-                              onTap: goToMom,
-                            )
-                          : _NavItem(
-                              icon: _tabs[i].icon!,
-                              label: _tabs[i].label,
-                              selected: navigationShell.currentIndex == i,
-                              onTap: () => navigationShell.goBranch(
-                                i,
-                                initialLocation: i == navigationShell.currentIndex,
-                              ),
+      body: navigationShell,
+      bottomNavigationBar: SizedBox(
+        height: momHeadroom + safeAreaBottom + 12 + 42 + 22,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: mom.surface,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.momRadiusNav)),
+                  boxShadow: MomElevation.nav,
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+                    child: SizedBox(
+                      height: 42,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < _tabs.length; i++)
+                            Expanded(
+                              child: i == 2
+                                  // Mom's circle is painted (and made
+                                  // tappable) above, in this same Stack, not
+                                  // here — this just reserves equal width so
+                                  // the other 4 tabs stay evenly spaced.
+                                  ? const SizedBox.shrink()
+                                  : _NavItem(
+                                      icon: _tabs[i].icon!,
+                                      label: _tabs[i].label,
+                                      selected: navigationShell.currentIndex == i,
+                                      onTap: () => navigationShell.goBranch(
+                                        i,
+                                        initialLocation: i == navigationShell.currentIndex,
+                                      ),
+                                    ),
                             ),
+                        ],
+                      ),
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: safeAreaBottom + 22,
+              child: Center(
+                child: _MomNavItem(
+                  style: momAvatar,
+                  selected: navigationShell.currentIndex == 2,
+                  onTap: goToMom,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -135,7 +148,10 @@ class _NavItem extends StatelessWidget {
 }
 
 /// The center "Mom" tab — raised 56px peach circle holding Mom's avatar,
-/// replacing the old plain chat-bubble icon.
+/// replacing the old plain chat-bubble icon. The circle Container is the
+/// tap target itself (via InkWell, so it also gets the usual ripple),
+/// rather than a separately positioned invisible hit box guessing at
+/// where the circle happens to be painted.
 class _MomNavItem extends StatelessWidget {
   const _MomNavItem({required this.style, required this.selected, required this.onTap});
 
@@ -146,42 +162,36 @@ class _MomNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mom = context.mom;
-    return InkWell(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // The circle and its label are one Column, so they can never
-          // overlap — positioned low in the bar (near its bottom edge) so
-          // the badge sits grounded rather than floating, while still
-          // poking up above the bar via Clip.none.
-          Positioned(
-            bottom: 2,
-            left: 0,
-            right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  padding: const EdgeInsets.all(3),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: mom.promoPeach,
-                    border: Border.all(color: mom.surface, width: 3),
-                    boxShadow: MomElevation.fab,
-                  ),
-                  child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
-                ),
-                const SizedBox(height: 2),
-                Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
-              ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 56,
+              height: 56,
+              padding: const EdgeInsets.all(3),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: mom.promoPeach,
+                border: Border.all(color: mom.surface, width: 3),
+                boxShadow: MomElevation.fab,
+              ),
+              child: MomAvatar(style: style, expression: MomExpression.normal, showMoodBadge: false, size: 38),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 2),
+        GestureDetector(
+          onTap: onTap,
+          child: Text('Mom', style: MomText.navLabel(selected ? mom.espresso : mom.navInactive, active: selected)),
+        ),
+      ],
     );
   }
 }
