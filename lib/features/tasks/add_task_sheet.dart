@@ -87,9 +87,18 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
             category: _customSelected ? _customCategoryController.text.trim() : _category.name,
             recurrence: _recurrence,
             dueTime: _dueTimeString,
+            // .toUtc() matters here: a bare local DateTime serializes via
+            // toIso8601String() with no timezone offset at all, which the
+            // database session then reads as if it were already UTC —
+            // shifting the stored instant by the device's own UTC offset,
+            // and shifting it *again* the same direction when the app
+            // later converts it back with .toLocal() to read. For a task
+            // added late in the day that's enough to land on the wrong
+            // calendar date entirely. Converting to a real UTC instant
+            // here makes the round trip unambiguous.
             createdAt: isTargetToday
                 ? null
-                : DateTime(target.year, target.month, target.day, now.hour, now.minute, now.second),
+                : DateTime(target.year, target.month, target.day, now.hour, now.minute, now.second).toUtc(),
           );
       if (taskId != null && _dueTimeString != null) {
         await NotificationService.scheduleTaskReminder(

@@ -70,7 +70,7 @@ class HealthRepository {
       'water_target': waterTarget,
       'sleep_target_hours': sleepTargetHours,
       'workout_target_minutes': workoutTargetMinutes,
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
     });
   }
 
@@ -146,7 +146,7 @@ class HealthRepository {
   Future<void> archiveActivity(String activityId) {
     return _client
         .from('health_activities')
-        .update({'archived_at': DateTime.now().toIso8601String()})
+        .update({'archived_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', activityId);
   }
 

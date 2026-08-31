@@ -163,6 +163,6 @@ class TasksRepository {
   }
 
   Future<void> archiveTask(String taskId) {
-    return _client.from('tasks').update({'archived_at': DateTime.now().toIso8601String()}).eq('id', taskId);
+    return _client.from('tasks').update({'archived_at': DateTime.now().toUtc().toIso8601String()}).eq('id', taskId);
   }
 }
