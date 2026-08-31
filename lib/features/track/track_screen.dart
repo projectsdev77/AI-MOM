@@ -17,7 +17,6 @@ import '../../core/theme/mom_tokens.dart';
 import '../../core/theme/mom_typography.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/mom_components.dart';
-import 'finance_widgets.dart';
 
 /// A summary of both trackers — tap either card for the real, detailed
 /// page (`/track/finance`, `/track/health`). Kept deliberately light:
