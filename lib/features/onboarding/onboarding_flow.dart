@@ -648,13 +648,15 @@ class _NameStep extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            MomMessageCard(
-              avatarStyle: ref.watch(momAvatarStyleProvider),
-              expression: MomExpression.happy,
-              eyebrow: 'Mom says',
-              message: "Lovely name. Now let's see what you keep putting off, sweetheart.",
-            ),
+            if (controller.text.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              MomMessageCard(
+                avatarStyle: ref.watch(momAvatarStyleProvider),
+                expression: MomExpression.happy,
+                eyebrow: 'Mom says',
+                message: "Lovely name. Now let's see what you keep putting off, sweetheart.",
+              ),
+            ],
           ],
         ),
       ),
