@@ -69,6 +69,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   bool _submitting = false;
   bool _isLoginMode = false;
   String? _error;
+  // Only true right after a signup that needs email confirmation
+  // (Supabase's "Confirm email" setting) — signUp() then returns no
+  // session, so there's no signed-in user yet to save onboarding
+  // answers against, and the router has no session to redirect on.
+  // Without this the screen would just silently sit there looking
+  // stuck instead of telling them to check their inbox.
+  bool _awaitingEmailConfirmation = false;
 
   static const _totalSteps = 10;
 
@@ -111,11 +118,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         // don't overwrite them with whatever's sitting in this blank
         // onboarding pass.
       } else {
-        await auth.signUpWithEmail(
+        final signedInImmediately = await auth.signUpWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           name: _nameController.text.trim(),
         );
+        if (!signedInImmediately) {
+          if (mounted) setState(() => _awaitingEmailConfirmation = true);
+          return;
+        }
         await _saveOnboardingAnswers();
       }
       // The router's auth-state listener takes it from here and redirects
@@ -147,7 +158,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 
   void _startLogin() {
-    setState(() => _isLoginMode = true);
+    setState(() {
+      _isLoginMode = true;
+      _awaitingEmailConfirmation = false;
+    });
     _goToStep(_totalSteps - 1);
   }
 
@@ -155,6 +169,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     setState(() {
       _isLoginMode = false;
       _error = null;
+      _awaitingEmailConfirmation = false;
     });
     _goToStep(0);
   }
@@ -331,9 +346,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     submitting: _submitting,
                     error: _error,
                     isLoginMode: _isLoginMode,
+                    awaitingEmailConfirmation: _awaitingEmailConfirmation,
                     onForgotPasswordTap: _forgotPassword,
                     onGoogleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithGoogle),
                     onAppleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithApple),
+                    onSwitchToLogin: _startLogin,
                     onPreviewTap: () {
                       previewModeEnabled = true;
                       context.go('/dashboard');
@@ -342,7 +359,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 ],
               ),
             ),
-            if (!_isAutoAdvanceStep)
+            if (!_isAutoAdvanceStep && !_awaitingEmailConfirmation)
               Padding(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.momGutter, 0, AppSpacing.momGutter, AppSpacing.lg),
                 child: PrimaryButton(
@@ -892,9 +909,11 @@ class _AuthStep extends StatefulWidget {
     required this.submitting,
     required this.error,
     required this.isLoginMode,
+    required this.awaitingEmailConfirmation,
     required this.onForgotPasswordTap,
     required this.onGoogleTap,
     required this.onAppleTap,
+    required this.onSwitchToLogin,
     required this.onPreviewTap,
   });
 
@@ -904,9 +923,11 @@ class _AuthStep extends StatefulWidget {
   final bool submitting;
   final String? error;
   final bool isLoginMode;
+  final bool awaitingEmailConfirmation;
   final VoidCallback onForgotPasswordTap;
   final VoidCallback onGoogleTap;
   final VoidCallback onAppleTap;
+  final VoidCallback onSwitchToLogin;
   final VoidCallback onPreviewTap;
 
   @override
@@ -930,6 +951,25 @@ class _AuthStepState extends State<_AuthStep> {
   @override
   Widget build(BuildContext context) {
     final mom = context.mom;
+
+    if (widget.awaitingEmailConfirmation) {
+      return _StepScaffold(
+        title: 'Check your email',
+        subtitle: "We sent a confirmation link to ${widget.emailController.text.trim()}.",
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Tap that link to confirm your account, then come back here and log in — Mom will be waiting.",
+              style: MomText.body(mom.inkSoft),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            PrimaryButton(label: "I've confirmed — log in", onPressed: widget.onSwitchToLogin),
+          ],
+        ),
+      );
+    }
+
     final fieldDecoration = InputDecoration(
       filled: true,
       fillColor: mom.surface,

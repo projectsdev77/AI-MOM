@@ -25,17 +25,27 @@ class AuthService {
   User? get currentUser => _client.auth.currentUser;
   bool get isSignedIn => currentUser != null;
 
-  Future<void> signUpWithEmail({
+  /// Returns `true` if the new account is immediately signed in, `false`
+  /// if Supabase's "Confirm email" setting is on and it sent a
+  /// confirmation link instead — signUp() then returns a user with no
+  /// session at all, so there's nothing for [_afterSignIn] to do yet.
+  /// The caller needs this distinction to show "check your email"
+  /// instead of silently doing nothing while looking like the app
+  /// hung, and to not attempt anything that needs a signed-in user id
+  /// (like saving onboarding answers) until they've actually confirmed.
+  Future<bool> signUpWithEmail({
     required String email,
     required String password,
     required String name,
   }) async {
-    await _client.auth.signUp(
+    final response = await _client.auth.signUp(
       email: email,
       password: password,
       data: {'name': name},
     );
+    if (response.session == null) return false;
     await _afterSignIn();
+    return true;
   }
 
   Future<void> signInWithEmail({required String email, required String password}) async {
