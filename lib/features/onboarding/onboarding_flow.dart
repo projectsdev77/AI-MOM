@@ -545,7 +545,12 @@ class _AvatarStep extends ConsumerWidget {
           Container(
             width: double.infinity,
             height: 300,
-            padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 0, AppSpacing.momGutter, 0),
+            // Symmetric left/right (was 8/20, visibly off-center) and a
+            // bit of top padding beyond the safe-area inset itself (was
+            // 0, leaving the progress dashes flush against the status
+            // bar with no breathing room) — matches _ProgressHeader's
+            // equivalent gap on every other step.
+            padding: const EdgeInsets.fromLTRB(AppSpacing.momGutter, AppSpacing.md, AppSpacing.momGutter, 0),
             decoration: BoxDecoration(color: mom.promoPeach),
             child: SafeArea(
               bottom: false,
@@ -556,7 +561,12 @@ class _AvatarStep extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          const SizedBox(width: 40),
+                          // No leading spacer here, unlike _ProgressHeader
+                          // on later steps — this is step 0, there's no
+                          // back button to reserve space for, and a bare
+                          // 40px gap with nothing on the other side of the
+                          // row is exactly what was pushing these dashes
+                          // off-center.
                           for (var i = 0; i < 10; i++)
                             Expanded(
                               child: Container(
