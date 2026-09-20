@@ -72,6 +72,18 @@ class AppTheme {
         iconTheme: IconThemeData(color: textPrimary),
         titleTextStyle: textTheme.titleLarge,
       ),
+      // Without this, AlertDialog falls back to Material 3's default
+      // dialog theme instead of this app's own colors — including its
+      // automatic surface-tint overlay (the same purple-ish bleed the
+      // appBarTheme above already guards against), which is why dialog
+      // titles like "Change email" were showing up nearly illegible
+      // against the dialog background.
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: textTheme.titleLarge?.copyWith(color: textPrimary),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: textSecondary),
+      ),
       cardTheme: CardThemeData(
         color: surface,
         elevation: 0,
