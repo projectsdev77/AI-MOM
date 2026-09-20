@@ -353,6 +353,37 @@ class _CategoryExpensesSheet extends ConsumerWidget {
   final String currency;
   final List<ExpenseRow> expenses;
 
+  Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref, ExpenseRow expense) async {
+    final mom = context.mom;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this expense?'),
+        content: Text('${formatMoney(expense.amountCents, currency)} on ${expense.spentAt.month}/${expense.spentAt.day} will be removed.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: TextStyle(color: mom.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      if (context.mounted) Slidable.of(context)?.close();
+      return;
+    }
+    try {
+      await ref.read(financeRepositoryProvider).deleteExpense(expense.id);
+      ref.invalidate(expensesThisMonthProvider);
+    } catch (e) {
+      if (context.mounted) {
+        Slidable.of(context)?.close();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mom = context.mom;
@@ -388,15 +419,31 @@ class _CategoryExpensesSheet extends ConsumerWidget {
                 for (final e in expenses)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${e.spentAt.month}/${e.spentAt.day}${e.note != null && e.note!.isNotEmpty ? ' — ${e.note}' : ''}',
-                          style: MomText.body(mom.inkSoft),
-                        ),
-                        Text(formatMoney(e.amountCents, currency), style: MomText.rowLabel(mom.ink)),
-                      ],
+                    child: Slidable(
+                      key: ValueKey(e.id),
+                      endActionPane: ActionPane(
+                        motion: const DrawerMotion(),
+                        extentRatio: 0.22,
+                        children: [
+                          SlidableAction(
+                            onPressed: (actionContext) => _confirmAndDelete(actionContext, ref, e),
+                            backgroundColor: mom.danger,
+                            foregroundColor: Colors.white,
+                            icon: LucideIcons.trash2,
+                            borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${e.spentAt.month}/${e.spentAt.day}${e.note != null && e.note!.isNotEmpty ? ' — ${e.note}' : ''}',
+                            style: MomText.body(mom.inkSoft),
+                          ),
+                          Text(formatMoney(e.amountCents, currency), style: MomText.rowLabel(mom.ink)),
+                        ],
+                      ),
                     ),
                   ),
               ],

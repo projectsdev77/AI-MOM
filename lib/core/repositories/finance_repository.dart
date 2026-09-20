@@ -65,6 +65,13 @@ class FinanceRepository {
     });
   }
 
+  /// No update — a mis-entered expense (wrong amount, wrong category)
+  /// is simpler to delete and re-add correctly than to build a full
+  /// edit form for, and gets someone to the same fixed result.
+  Future<void> deleteExpense(String expenseId) {
+    return _client.from('expenses').delete().eq('id', expenseId);
+  }
+
   Future<int?> fetchOverallBudgetCents(String userId) async {
     final row = await _client
         .from('budgets')
