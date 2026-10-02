@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 
 import '../config/env.dart';
 import 'notification_service.dart';
@@ -52,9 +52,12 @@ class PushService {
       });
 
       _ready = true;
-    } catch (_) {
+    } catch (e, st) {
       // Push just won't work on this device — see registerToken's note
-      // on why that's never worth taking startup down over.
+      // on why that's never worth taking startup down over. Logged
+      // (not just swallowed) so a broken token pipeline is diagnosable
+      // from logcat instead of just silently never registering.
+      debugPrint('PushService.init failed: $e\n$st');
     }
   }
 
@@ -70,15 +73,22 @@ class PushService {
   /// throw here would otherwise surface as a false "sign-in failed" to
   /// someone whose account sign-in actually succeeded.
   static Future<void> registerToken(Future<void> Function(String token) onToken) async {
-    if (!_ready || kIsWeb) return;
+    if (!_ready) {
+      debugPrint('PushService.registerToken: skipped, PushService never became ready');
+      return;
+    }
+    if (kIsWeb) return;
     try {
       final token = await FirebaseMessaging.instance.getToken();
+      debugPrint('PushService.registerToken: getToken() returned ${token == null ? 'null' : 'a token'}');
       if (token != null) await onToken(token);
       FirebaseMessaging.instance.onTokenRefresh.listen(onToken);
-    } catch (_) {
+    } catch (e, st) {
       // Push just won't work on this device until whatever's wrong
       // (usually stale Play Services) is fixed — not worth taking
-      // anything else down over.
+      // anything else down over. Logged so that failure is visible
+      // instead of silently never reaching profiles.fcm_token.
+      debugPrint('PushService.registerToken failed: $e\n$st');
     }
   }
 }
