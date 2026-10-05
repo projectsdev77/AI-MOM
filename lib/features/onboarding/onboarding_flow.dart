@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +40,15 @@ const _livingSituationOptions = ['On my own', 'With a partner or spouse', 'With 
 const _livingSituationSubs = ['Nobody else picks up the slack', 'Shared chores, shared blame', 'Kids, parents, or both', 'The dishes are political'];
 const _motivationStyleOptions = ['Gentle encouragement', 'Tough love, tell it straight', 'A mix of both'];
 const _motivationStyleSubs = ['Warm, patient, never sharp', 'She will bring up the streak you dropped', "Kind until you've stalled twice"];
+// Index-aligned with _motivationStyleOptions — Mom's reaction actually
+// matches what was picked, instead of always reacting as if "Tough love"
+// was chosen regardless of the real answer.
+const _motivationStyleBubbles = [
+  "Gentle it is. I'll keep my voice soft, promise.",
+  "Tough love it is. Don't say I didn't warn you.",
+  "A mix it is. Soft when you need it, sharp when you don't.",
+];
+const _motivationStyleExpressions = [MomExpression.happy, MomExpression.mad, MomExpression.normal];
 const _frequencySubs = [
   'One morning nudge',
   'Morning plan, evening review',
@@ -264,6 +275,20 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _goToStep(_step + 1);
   }
 
+  /// Used by every auto-advance single-select step (daily routine, living
+  /// situation, motivation style, check-in frequency): records the pick,
+  /// then gives a beat for Mom's reaction — where that step has one — to
+  /// actually be seen before moving on, instead of jumping to the next
+  /// step in the same frame as the tap. Guards against advancing from the
+  /// wrong step if the person backs out during that pause.
+  void _selectThenAdvance(VoidCallback applySelection) {
+    setState(applySelection);
+    final stepAtSelection = _step;
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted && _step == stepAtSelection) _next();
+    });
+  }
+
   bool get _canContinue => switch (_step) {
         0 => _hasPickedAvatar,
         1 => _nameController.text.trim().isNotEmpty,
@@ -343,20 +368,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     options: _dailyRoutineOptions,
                     subs: _dailyRoutineSubs,
                     selected: _dailyRoutine,
-                    onSelect: (o) {
-                      setState(() => _dailyRoutine = o);
-                      _next();
-                    },
+                    onSelect: (o) => _selectThenAdvance(() => _dailyRoutine = o),
                   ),
                   _SingleSelectStep(
                     title: "What's your living situation?",
                     options: _livingSituationOptions,
                     subs: _livingSituationSubs,
                     selected: _livingSituation,
-                    onSelect: (o) {
-                      setState(() => _livingSituation = o);
-                      _next();
-                    },
+                    onSelect: (o) => _selectThenAdvance(() => _livingSituation = o),
                   ),
                   _SingleSelectStep(
                     title: 'What motivates you best?',
@@ -364,20 +383,18 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     options: _motivationStyleOptions,
                     subs: _motivationStyleSubs,
                     selected: _motivationStyle,
-                    onSelect: (o) {
-                      setState(() => _motivationStyle = o);
-                      _next();
-                    },
-                    momBubble: "Tough love it is. Don't say I didn't warn you.",
-                    momExpression: MomExpression.mad,
+                    onSelect: (o) => _selectThenAdvance(() => _motivationStyle = o),
+                    momBubble: _motivationStyle == null
+                        ? null
+                        : _motivationStyleBubbles[_motivationStyleOptions.indexOf(_motivationStyle!)],
+                    momExpression: _motivationStyle == null
+                        ? null
+                        : _motivationStyleExpressions[_motivationStyleOptions.indexOf(_motivationStyle!)],
                   ),
                   _StressorStep(controller: _stressorController, onChanged: () => setState(() {})),
                   _FrequencyStep(
                     selected: _frequency,
-                    onSelect: (f) {
-                      setState(() => _frequency = f);
-                      _next();
-                    },
+                    onSelect: (f) => _selectThenAdvance(() => _frequency = f),
                   ),
                   _AuthStep(
                     emailController: _emailController,
@@ -673,13 +690,43 @@ class _AvatarStep extends ConsumerWidget {
   }
 }
 
-class _NameStep extends ConsumerWidget {
+class _NameStep extends ConsumerStatefulWidget {
   const _NameStep({required this.controller, required this.onChanged});
   final TextEditingController controller;
   final VoidCallback onChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_NameStep> createState() => _NameStepState();
+}
+
+class _NameStepState extends ConsumerState<_NameStep> {
+  // Showing Mom's reaction after every single keystroke made it pop in
+  // after the first letter, before there's an actual name to react to.
+  // Waiting for a short pause in typing instead means it shows up once
+  // there's something real to react to, the way a person would.
+  Timer? _debounce;
+  bool _showMessage = false;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _handleChanged() {
+    widget.onChanged();
+    _debounce?.cancel();
+    if (widget.controller.text.trim().isEmpty) {
+      if (_showMessage) setState(() => _showMessage = false);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _showMessage = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final mom = context.mom;
     return _StepScaffold(
       title: 'What should Mom call you?',
@@ -691,8 +738,8 @@ class _NameStep extends ConsumerWidget {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), boxShadow: MomElevation.card),
               child: TextField(
-                controller: controller,
-                onChanged: (_) => onChanged(),
+                controller: widget.controller,
+                onChanged: (_) => _handleChanged(),
                 autofocus: true,
                 textCapitalization: TextCapitalization.words,
                 style: MomText.rowLabel(mom.ink, selected: true),
@@ -705,7 +752,7 @@ class _NameStep extends ConsumerWidget {
                 ),
               ),
             ),
-            if (controller.text.trim().isNotEmpty) ...[
+            if (_showMessage) ...[
               const SizedBox(height: AppSpacing.lg),
               MomMessageCard(
                 avatarStyle: ref.watch(momAvatarStyleProvider),
@@ -756,7 +803,7 @@ class _MultiSelectStep extends StatelessWidget {
                 for (final o in options) MomChip(label: o, selected: selected.contains(o), onTap: () => onToggle(o)),
               ],
             ),
-            if (momBubble != null) ...[
+            if (momBubble != null && selected.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
               Consumer(
                 builder: (context, ref, _) => MomMessageCard(
@@ -817,7 +864,7 @@ class _SingleSelectStep extends StatelessWidget {
                   onTap: () => onSelect(options[i]),
                 ),
               ),
-            if (momBubble != null) ...[
+            if (momBubble != null && selected != null) ...[
               const SizedBox(height: AppSpacing.sm),
               Consumer(
                 builder: (context, ref, _) => MomMessageCard(
@@ -842,7 +889,6 @@ class _FrequencyStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mom = context.mom;
     final avatarStyle = ref.watch(momAvatarStyleProvider);
     final index = checkInFrequencyOptions.indexOf(selected).clamp(0, _frequencySubs.length - 1);
 
@@ -863,18 +909,16 @@ class _FrequencyStep extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: AppSpacing.sm),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-              decoration: BoxDecoration(color: mom.promoPeach, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPanel)),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MomAvatar(style: avatarStyle, expression: MomExpression.happy, showMoodBadge: false, size: 52),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(_frequencySubs[index], style: MomText.momMessage(mom.ink))),
-                ],
-              ),
+            // Same shared message-card shape every other step uses — the
+            // one-off Row this used to be had a single line of text set
+            // against a 52px avatar with top alignment, which read as
+            // noticeably off-center next to MomMessageCard's own
+            // eyebrow+message two-line layout.
+            MomMessageCard(
+              avatarStyle: avatarStyle,
+              expression: MomExpression.happy,
+              eyebrow: 'Mom says',
+              message: _frequencySubs[index],
             ),
           ],
         ),
