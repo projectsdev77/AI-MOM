@@ -9,7 +9,12 @@
 -- the kind of thing they said they put off), and up to 3 of today's
 -- actual pending task titles + categories (so the nudge can name a
 -- real task instead of vaguely gesturing at "today's list").
-create or replace function public.users_to_nudge()
+--
+-- Dropped first because Postgres won't change a function's return
+-- columns through `create or replace` (same reason 0010 drops it).
+drop function if exists public.users_to_nudge();
+
+create function public.users_to_nudge()
 returns table (
   user_id uuid,
   fcm_token text,
