@@ -8,6 +8,8 @@ import '../../core/config/preview_mode.dart';
 import '../../core/constants/check_in_frequency.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/repositories/profile_repository.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
 import '../../core/theme/mom_tokens.dart';
@@ -107,8 +109,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _submitting = true;
       _error = null;
     });
+    final auth = ref.read(authServiceProvider);
+    final profileRepository = ref.read(profileRepositoryProvider);
+    final momAvatarStyle = ref.read(momAvatarStyleProvider).name;
     try {
-      final auth = ref.read(authServiceProvider);
       if (_isLoginMode) {
         await auth.signInWithEmail(
           email: _emailController.text.trim(),
@@ -127,12 +131,16 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           if (mounted) setState(() => _awaitingEmailConfirmation = true);
           return;
         }
-        await _saveOnboardingAnswers();
+        await _saveOnboardingAnswers(
+          auth: auth,
+          profileRepository: profileRepository,
+          momAvatarStyle: momAvatarStyle,
+        );
       }
       // The router's auth-state listener takes it from here and redirects
       // to /dashboard once the session is set.
     } catch (e) {
-      setState(() => _error = friendlyAuthError(e));
+      if (mounted) setState(() => _error = friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -174,20 +182,31 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _goToStep(0);
   }
 
-  Future<void> _saveOnboardingAnswers() async {
-    final userId = ref.read(authServiceProvider).currentUser?.id;
+  // Takes auth/profileRepository/momAvatarStyle as arguments rather than
+  // reading them from `ref` itself — this runs after an `await` for
+  // sign-in, and the router's auth-state listener can redirect (and
+  // dispose this widget) the instant the session appears, sometimes
+  // before this call even starts. Reading `ref` post-dispose throws
+  // ("Cannot use ref after the widget was disposed"), so callers
+  // capture these while still definitely mounted, before that await.
+  Future<void> _saveOnboardingAnswers({
+    required AuthService auth,
+    required ProfileRepository profileRepository,
+    required String momAvatarStyle,
+  }) async {
+    final userId = auth.currentUser?.id;
     if (userId == null) return;
-    await ref.read(profileRepositoryProvider).saveOnboardingAnswers(
-          userId: userId,
-          momAvatarStyle: ref.read(momAvatarStyleProvider).name,
-          goals: _goals.toList(),
-          procrastinationAreas: _procrastination.toList(),
-          checkInFrequency: _frequency,
-          dailyRoutine: _dailyRoutine,
-          livingSituation: _livingSituation,
-          motivationStyle: _motivationStyle,
-          currentStressor: _stressorController.text,
-        );
+    await profileRepository.saveOnboardingAnswers(
+      userId: userId,
+      momAvatarStyle: momAvatarStyle,
+      goals: _goals.toList(),
+      procrastinationAreas: _procrastination.toList(),
+      checkInFrequency: _frequency,
+      dailyRoutine: _dailyRoutine,
+      livingSituation: _livingSituation,
+      motivationStyle: _motivationStyle,
+      currentStressor: _stressorController.text,
+    );
   }
 
   Future<void> _socialSignIn(Future<void> Function() signIn) async {
@@ -195,6 +214,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _submitting = true;
       _error = null;
     });
+    final auth = ref.read(authServiceProvider);
+    final profileRepository = ref.read(profileRepositoryProvider);
+    final momAvatarStyle = ref.read(momAvatarStyleProvider).name;
     try {
       await signIn();
       // Google/Apple sign-in doesn't distinguish new vs. returning users
@@ -202,7 +224,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       // real profile with blank onboarding answers is worse than a new
       // user occasionally needing to re-set them — Supabase's own
       // signInWithIdToken creates the account on first use either way.
-      if (!_isLoginMode) await _saveOnboardingAnswers();
+      if (!_isLoginMode) {
+        await _saveOnboardingAnswers(
+          auth: auth,
+          profileRepository: profileRepository,
+          momAvatarStyle: momAvatarStyle,
+        );
+      }
     } catch (e, st) {
       // The plugin's actual exception (Credential Manager error code,
       // Google Play Services status, etc.) is what's needed to diagnose
