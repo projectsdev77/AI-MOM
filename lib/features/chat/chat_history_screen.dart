@@ -65,6 +65,42 @@ class _SessionRow extends ConsumerWidget {
   const _SessionRow({required this.session});
   final ChatSessionSummary session;
 
+  Future<void> _rename(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: session.title);
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename conversation'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'Conversation name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (newTitle == null || newTitle.isEmpty || newTitle == session.title) {
+      if (context.mounted) Slidable.of(context)?.close();
+      return;
+    }
+    try {
+      await ref.read(chatRepositoryProvider).renameSession(sessionId: session.id, title: newTitle);
+      ref.invalidate(chatSessionsProvider);
+    } catch (e) {
+      if (context.mounted) {
+        Slidable.of(context)?.close();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
   Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
     final mom = context.mom;
     final confirmed = await showDialog<bool>(
@@ -103,8 +139,15 @@ class _SessionRow extends ConsumerWidget {
       key: ValueKey(session.id),
       endActionPane: ActionPane(
         motion: const DrawerMotion(),
-        extentRatio: 0.22,
+        extentRatio: 0.4,
         children: [
+          SlidableAction(
+            onPressed: (actionContext) => _rename(actionContext, ref),
+            backgroundColor: mom.espresso,
+            foregroundColor: Colors.white,
+            icon: LucideIcons.pencilLine,
+            borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+          ),
           SlidableAction(
             onPressed: (actionContext) => _confirmAndDelete(actionContext, ref),
             backgroundColor: mom.danger,

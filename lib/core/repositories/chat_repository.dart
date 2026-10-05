@@ -44,6 +44,13 @@ class ChatRepository {
     return _client.from('chat_sessions').delete().eq('id', sessionId);
   }
 
+  /// The mom-chat edge function only ever sets `title` once, from the
+  /// first message, when a session is created — it's never touched
+  /// again server-side, so a rename here sticks for good.
+  Future<void> renameSession({required String sessionId, required String title}) {
+    return _client.from('chat_sessions').update({'title': title}).eq('id', sessionId);
+  }
+
   Future<List<ChatMessageRow>> fetchMessages(String sessionId) async {
     final rows = await _client
         .from('chat_messages')
