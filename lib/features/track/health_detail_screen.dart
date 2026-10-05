@@ -365,51 +365,57 @@ class _ActivityRow extends ConsumerWidget {
         ],
       ),
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(color: mom.surface, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard), boxShadow: MomElevation.card),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(AppSpacing.momRadiusTile)),
-              child: Icon(LucideIcons.activity, size: 18, color: tintIcon),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(activity.title, style: MomText.rowLabel(mom.ink)),
-                  Text('${activity.todayMinutes}/${activity.targetMinutes}min today', style: MomText.rowSub(mom.inkMuted)),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 5,
-                      backgroundColor: mom.hairline,
-                      valueColor: AlwaysStoppedAnimation(mom.doneOrange),
-                    ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+          onTap: () => showAddHealthActivitySheet(context, existing: activity),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(AppSpacing.momRadiusTile)),
+                  child: Icon(LucideIcons.activity, size: 18, color: tintIcon),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(activity.title, style: MomText.rowLabel(mom.ink)),
+                      Text('${activity.todayMinutes}/${activity.targetMinutes}min today', style: MomText.rowSub(mom.inkMuted)),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          backgroundColor: mom.hairline,
+                          valueColor: AlwaysStoppedAnimation(mom.doneOrange),
+                        ),
+                      ),
+                      if (overMinutes > 0) ...[
+                        const SizedBox(height: 4),
+                        Text('${overMinutes}m over goal — look at you!', style: MomText.meta(mom.doneOrange)),
+                      ],
+                    ],
                   ),
-                  if (overMinutes > 0) ...[
-                    const SizedBox(height: 4),
-                    Text('${overMinutes}m over goal — look at you!', style: MomText.meta(mom.doneOrange)),
-                  ],
-                ],
-              ),
+                ),
+                GestureDetector(
+                  onTap: () => showLogActivityMinutesSheet(context, ref, activityId: activity.id, title: activity.title),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    child: Icon(LucideIcons.plus, size: 18, color: mom.espresso),
+                  ),
+                ),
+              ],
             ),
-            GestureDetector(
-              onTap: () => showLogActivityMinutesSheet(context, ref, activityId: activity.id, title: activity.title),
-              child: Container(
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                child: Icon(LucideIcons.plus, size: 18, color: mom.espresso),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

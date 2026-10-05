@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
+import '../../core/repositories/health_repository.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
 import '../../core/theme/mom_tokens.dart';
@@ -318,27 +319,32 @@ Future<void> showLogActivityMinutesSheet(
   );
 }
 
-Future<void> showAddHealthActivitySheet(BuildContext context, {String? initialTitle}) {
+/// Pass [existing] to edit that activity's name/target in place instead
+/// of creating a new one.
+Future<void> showAddHealthActivitySheet(BuildContext context, {String? initialTitle, HealthActivity? existing}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => _AddHealthActivitySheet(initialTitle: initialTitle),
+    builder: (context) => _AddHealthActivitySheet(initialTitle: initialTitle, existing: existing),
   );
 }
 
 class _AddHealthActivitySheet extends ConsumerStatefulWidget {
-  const _AddHealthActivitySheet({this.initialTitle});
+  const _AddHealthActivitySheet({this.initialTitle, this.existing});
   final String? initialTitle;
+  final HealthActivity? existing;
 
   @override
   ConsumerState<_AddHealthActivitySheet> createState() => _AddHealthActivitySheetState();
 }
 
 class _AddHealthActivitySheetState extends ConsumerState<_AddHealthActivitySheet> {
-  late final _titleController = TextEditingController(text: widget.initialTitle ?? '');
-  final _targetController = TextEditingController(text: '30');
+  late final _titleController = TextEditingController(text: widget.existing?.title ?? widget.initialTitle ?? '');
+  late final _targetController = TextEditingController(text: '${widget.existing?.targetMinutes ?? 30}');
   bool _saving = false;
+
+  bool get _isEditing => widget.existing != null;
 
   @override
   void dispose() {
@@ -351,11 +357,19 @@ class _AddHealthActivitySheetState extends ConsumerState<_AddHealthActivitySheet
     final title = _titleController.text.trim();
     final target = int.tryParse(_targetController.text) ?? 30;
     if (title.isEmpty) return;
-    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
-    if (userId == null) return;
     setState(() => _saving = true);
     try {
-      await ref.read(healthRepositoryProvider).addActivity(userId: userId, title: title, targetMinutes: target);
+      if (_isEditing) {
+        await ref.read(healthRepositoryProvider).updateActivity(
+              activityId: widget.existing!.id,
+              title: title,
+              targetMinutes: target,
+            );
+      } else {
+        final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+        if (userId == null) return;
+        await ref.read(healthRepositoryProvider).addActivity(userId: userId, title: title, targetMinutes: target);
+      }
       ref.invalidate(healthActivitiesProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -394,7 +408,7 @@ class _AddHealthActivitySheetState extends ConsumerState<_AddHealthActivitySheet
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('New activity', style: MomText.sheetTitle(mom.ink)),
+            Text(_isEditing ? 'Edit activity' : 'New activity', style: MomText.sheetTitle(mom.ink)),
             const SizedBox(height: AppSpacing.lg),
             TextField(
               controller: _titleController,
@@ -413,7 +427,7 @@ class _AddHealthActivitySheetState extends ConsumerState<_AddHealthActivitySheet
             ),
             const SizedBox(height: AppSpacing.xl),
             PrimaryButton(
-              label: _saving ? 'Saving…' : 'Add activity',
+              label: _saving ? 'Saving…' : (_isEditing ? 'Save changes' : 'Add activity'),
               onPressed: (_titleController.text.trim().isEmpty || _saving) ? null : _save,
             ),
           ],

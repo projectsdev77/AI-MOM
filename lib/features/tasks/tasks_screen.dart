@@ -505,6 +505,7 @@ class _TaskRow extends ConsumerWidget {
         sub: task.dueTimeLabel ?? (task.isHabit ? '${task.streakCount} day streak' : null),
         done: task.done,
         onToggle: () => _toggle(context, ref),
+        onTap: () => showAddTaskSheet(context, existing: task),
       ),
     );
   }

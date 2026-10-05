@@ -121,6 +121,32 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     await refresh();
     return id;
   }
+
+  /// [dueTime] null means "no reminder" — explicitly cancels any
+  /// previously-scheduled one, since [refresh] only re-schedules tasks
+  /// that currently have a dueTime and wouldn't otherwise notice one
+  /// was just cleared.
+  Future<void> updateTask({
+    required String taskId,
+    required String title,
+    required String category,
+    required RecurrenceType recurrence,
+    String? dueTime,
+  }) async {
+    await ref.read(tasksRepositoryProvider).updateTask(
+          taskId: taskId,
+          title: title,
+          category: category,
+          recurrence: recurrence,
+          dueTime: dueTime,
+        );
+    if (dueTime != null) {
+      await NotificationService.scheduleTaskReminder(taskId: taskId, title: title, dueTime: dueTime);
+    } else {
+      await NotificationService.cancelTaskReminder(taskId);
+    }
+    await refresh();
+  }
 }
 
 final tasksProvider = NotifierProvider<TasksNotifier, List<TaskItem>>(

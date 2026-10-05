@@ -120,6 +120,21 @@ class TasksRepository {
     return row['id'] as String;
   }
 
+  Future<void> updateTask({
+    required String taskId,
+    required String title,
+    required String category,
+    required RecurrenceType recurrence,
+    String? dueTime,
+  }) {
+    return _client.from('tasks').update({
+      'title': title,
+      'category': category,
+      'recurrence': recurrence.name,
+      'due_time': dueTime,
+    }).eq('id', taskId);
+  }
+
   Future<void> setDone({
     required String taskId,
     required String userId,

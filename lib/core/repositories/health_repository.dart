@@ -143,6 +143,17 @@ class HealthRepository {
     });
   }
 
+  Future<void> updateActivity({
+    required String activityId,
+    required String title,
+    required int targetMinutes,
+  }) {
+    return _client.from('health_activities').update({
+      'title': title,
+      'target_minutes': targetMinutes,
+    }).eq('id', activityId);
+  }
+
   Future<void> archiveActivity(String activityId) {
     return _client
         .from('health_activities')

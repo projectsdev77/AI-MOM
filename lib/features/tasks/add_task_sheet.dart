@@ -18,33 +18,54 @@ import '../../core/widgets/primary_button.dart';
 /// [forDay] is whichever calendar day is currently selected on the
 /// screen the sheet was opened from — a one-off task belongs to its
 /// `created_at` day, so without this it would always land on today even
-/// while browsing a different day.
-Future<void> showAddTaskSheet(BuildContext context, {DateTime? forDay}) {
+/// while browsing a different day. Ignored when [existing] is set, since
+/// an edit never moves the task to a different day.
+///
+/// Pass [existing] to edit that task in place instead of creating a new
+/// one — the sheet pre-fills every field and saves back over it.
+Future<void> showAddTaskSheet(BuildContext context, {DateTime? forDay, TaskItem? existing}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => _AddTaskSheet(forDay: forDay),
+    builder: (context) => _AddTaskSheet(forDay: forDay, existing: existing),
   );
 }
 
 class _AddTaskSheet extends ConsumerStatefulWidget {
-  const _AddTaskSheet({this.forDay});
+  const _AddTaskSheet({this.forDay, this.existing});
 
   final DateTime? forDay;
+  final TaskItem? existing;
 
   @override
   ConsumerState<_AddTaskSheet> createState() => _AddTaskSheetState();
 }
 
 class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
-  final _titleController = TextEditingController();
-  final _customCategoryController = TextEditingController();
-  TaskCategory _category = TaskCategory.personal;
-  bool _customSelected = false;
-  RecurrenceType _recurrence = RecurrenceType.none;
-  TimeOfDay? _dueTime;
+  late final _titleController = TextEditingController(text: widget.existing?.title ?? '');
+  late final _customCategoryController = TextEditingController(
+    text: _startsCustom ? widget.existing!.categoryLabel : '',
+  );
+  late TaskCategory _category = _startsCustom ? TaskCategory.personal : (widget.existing?.category ?? TaskCategory.personal);
+  late bool _customSelected = _startsCustom;
+  late RecurrenceType _recurrence = widget.existing?.recurrence ?? RecurrenceType.none;
+  late TimeOfDay? _dueTime = _initialDueTime;
   bool _saving = false;
+
+  bool get _startsCustom => widget.existing != null && widget.existing!.category == TaskCategory.other;
+  bool get _isEditing => widget.existing != null;
+
+  TimeOfDay? get _initialDueTime {
+    final raw = widget.existing?.dueTime;
+    if (raw == null) return null;
+    final parts = raw.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
 
   @override
   void dispose() {
@@ -76,15 +97,27 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
+    final category = _customSelected ? _customCategoryController.text.trim() : _category.name;
     setState(() => _saving = true);
     try {
+      if (_isEditing) {
+        await ref.read(tasksProvider.notifier).updateTask(
+              taskId: widget.existing!.id,
+              title: title,
+              category: category,
+              recurrence: _recurrence,
+              dueTime: _dueTimeString,
+            );
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
       final target = widget.forDay;
       final now = DateTime.now();
       final isTargetToday = target == null ||
           (target.year == now.year && target.month == now.month && target.day == now.day);
       final taskId = await ref.read(tasksProvider.notifier).addTask(
             title: title,
-            category: _customSelected ? _customCategoryController.text.trim() : _category.name,
+            category: category,
             recurrence: _recurrence,
             dueTime: _dueTimeString,
             // .toUtc() matters here: a bare local DateTime serializes via
@@ -109,7 +142,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
       }
       if (mounted) Navigator.of(context).pop();
     } catch (e, st) {
-      debugPrint('addTask failed: $e\n$st');
+      debugPrint('${_isEditing ? 'updateTask' : 'addTask'} failed: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(friendlyError(e))),
@@ -156,7 +189,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
                 decoration: BoxDecoration(color: mom.fieldBorder, borderRadius: BorderRadius.circular(AppSpacing.momRadiusPill)),
               ),
             ),
-            Text('New task', style: MomText.sheetTitle(mom.ink)),
+            Text(_isEditing ? 'Edit task' : 'New task', style: MomText.sheetTitle(mom.ink)),
             const SizedBox(height: AppSpacing.lg),
             TextField(
               controller: _titleController,
@@ -231,7 +264,7 @@ class _AddTaskSheetState extends ConsumerState<_AddTaskSheet> {
             ),
             const SizedBox(height: AppSpacing.xl),
             PrimaryButton(
-              label: _saving ? 'Saving…' : 'Add task',
+              label: _saving ? 'Saving…' : (_isEditing ? 'Save changes' : 'Add task'),
               onPressed: (_canSave && !_saving) ? _save : null,
             ),
           ],

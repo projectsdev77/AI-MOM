@@ -118,6 +118,7 @@ class MomTaskRow extends StatelessWidget {
     this.sub,
     required this.done,
     required this.onToggle,
+    this.onTap,
   });
 
   final IconData icon;
@@ -128,68 +129,76 @@ class MomTaskRow extends StatelessWidget {
   final bool done;
   final VoidCallback onToggle;
 
+  /// Opens editing for this task — tapping the row anywhere except the
+  /// checkbox itself (which keeps its own [onToggle] instead).
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     final mom = context.mom;
     final tint = mom.tints[tintIndex % mom.tints.length];
     final tintIcon = mom.tintIcons[tintIndex % mom.tintIcons.length];
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
-      constraints: const BoxConstraints(minHeight: AppSpacing.momMinHitTarget),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: mom.taskTileFill,
-              borderRadius: BorderRadius.circular(AppSpacing.momRadiusTile),
-              border: Border.all(color: tintIcon.withValues(alpha: 0.2), width: 1.5),
-            ),
-            child: Icon(icon, size: 17, color: tintIcon),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(metaLabel.toUpperCase(), style: MomText.taskMetaLabel(tintIcon)),
-                const SizedBox(height: 2),
-                Text(
-                  title,
-                  // Fixed (not brightness-dependent) — this row always sits on a
-                  // light tint fill, which never flips color in dark mode.
-                  style: MomText.taskTitle(AppColors.ink).copyWith(
-                    decoration: done ? TextDecoration.lineThrough : null,
-                    color: done ? AppColors.ink.withValues(alpha: 0.6) : AppColors.ink,
-                  ),
-                ),
-                if (sub != null) ...[
-                  const SizedBox(height: 1),
-                  Text(sub!, style: MomText.meta(tintIcon, size: 11)),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: onToggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 24,
-              height: 24,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard)),
+        constraints: const BoxConstraints(minHeight: AppSpacing.momMinHitTarget),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: done ? mom.doneOrange : mom.checkIdleFill,
-                border: Border.all(color: done ? mom.doneOrange : mom.checkIdleRing, width: 2),
+                color: mom.taskTileFill,
+                borderRadius: BorderRadius.circular(AppSpacing.momRadiusTile),
+                border: Border.all(color: tintIcon.withValues(alpha: 0.2), width: 1.5),
               ),
-              child: done ? const Icon(LucideIcons.check, size: 14, color: Colors.white) : null,
+              child: Icon(icon, size: 17, color: tintIcon),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(metaLabel.toUpperCase(), style: MomText.taskMetaLabel(tintIcon)),
+                  const SizedBox(height: 2),
+                  Text(
+                    title,
+                    // Fixed (not brightness-dependent) — this row always sits on a
+                    // light tint fill, which never flips color in dark mode.
+                    style: MomText.taskTitle(AppColors.ink).copyWith(
+                      decoration: done ? TextDecoration.lineThrough : null,
+                      color: done ? AppColors.ink.withValues(alpha: 0.6) : AppColors.ink,
+                    ),
+                  ),
+                  if (sub != null) ...[
+                    const SizedBox(height: 1),
+                    Text(sub!, style: MomText.meta(tintIcon, size: 11)),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onToggle,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: done ? mom.doneOrange : mom.checkIdleFill,
+                  border: Border.all(color: done ? mom.doneOrange : mom.checkIdleRing, width: 2),
+                ),
+                child: done ? const Icon(LucideIcons.check, size: 14, color: Colors.white) : null,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

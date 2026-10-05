@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/track_providers.dart';
+import '../../core/repositories/finance_repository.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/mom_mood.dart';
 import '../../core/theme/mom_tokens.dart';
@@ -16,29 +17,37 @@ import '../../core/widgets/primary_button.dart';
 
 const kExpenseCategories = ['Food & drink', 'Groceries', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Other'];
 
-Future<void> showAddExpenseSheet(BuildContext context) {
+Future<void> showAddExpenseSheet(BuildContext context, {ExpenseRow? existing}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: context.mom.ink.withValues(alpha: 0.28),
-    builder: (context) => const _AddExpenseSheet(),
+    builder: (context) => _AddExpenseSheet(existing: existing),
   );
 }
 
 class _AddExpenseSheet extends ConsumerStatefulWidget {
-  const _AddExpenseSheet();
+  const _AddExpenseSheet({this.existing});
+  final ExpenseRow? existing;
 
   @override
   ConsumerState<_AddExpenseSheet> createState() => _AddExpenseSheetState();
 }
 
 class _AddExpenseSheetState extends ConsumerState<_AddExpenseSheet> {
-  final _amountController = TextEditingController();
-  final _customCategoryController = TextEditingController();
-  String _category = kExpenseCategories.first;
-  bool _customSelected = false;
+  late final _amountController = TextEditingController(
+    text: widget.existing != null ? (widget.existing!.amountCents / 100).toStringAsFixed(2) : '',
+  );
+  late final _customCategoryController = TextEditingController(
+    text: _startsCustom ? widget.existing!.category : '',
+  );
+  late String _category = _startsCustom ? kExpenseCategories.first : (widget.existing?.category ?? kExpenseCategories.first);
+  late bool _customSelected = _startsCustom;
   bool _saving = false;
+
+  bool get _startsCustom => widget.existing != null && !kExpenseCategories.contains(widget.existing!.category);
+  bool get _isEditing => widget.existing != null;
 
   @override
   void dispose() {
@@ -57,16 +66,26 @@ class _AddExpenseSheetState extends ConsumerState<_AddExpenseSheet> {
   Future<void> _save() async {
     final amount = double.tryParse(_amountController.text);
     if (amount == null) return;
-    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
-    if (userId == null) return;
+    final category = _customSelected ? _customCategoryController.text.trim() : _category;
 
     setState(() => _saving = true);
     try {
-      await ref.read(financeRepositoryProvider).addExpense(
-            userId: userId,
-            amountCents: (amount * 100).round(),
-            category: _customSelected ? _customCategoryController.text.trim() : _category,
-          );
+      if (_isEditing) {
+        await ref.read(financeRepositoryProvider).updateExpense(
+              expenseId: widget.existing!.id,
+              amountCents: (amount * 100).round(),
+              category: category,
+              note: widget.existing!.note,
+            );
+      } else {
+        final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+        if (userId == null) return;
+        await ref.read(financeRepositoryProvider).addExpense(
+              userId: userId,
+              amountCents: (amount * 100).round(),
+              category: category,
+            );
+      }
       ref.invalidate(expensesThisMonthProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -123,8 +142,11 @@ class _AddExpenseSheetState extends ConsumerState<_AddExpenseSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Log an expense', style: MomText.sheetTitle(mom.ink)),
-                      Text("I'll fold it into this month's total.", style: MomText.meta(mom.inkMuted, size: 12.5)),
+                      Text(_isEditing ? 'Edit expense' : 'Log an expense', style: MomText.sheetTitle(mom.ink)),
+                      Text(
+                        _isEditing ? "I'll update this month's total to match." : "I'll fold it into this month's total.",
+                        style: MomText.meta(mom.inkMuted, size: 12.5),
+                      ),
                     ],
                   ),
                 ),
@@ -176,13 +198,13 @@ class _AddExpenseSheetState extends ConsumerState<_AddExpenseSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Date', style: MomText.body(mom.inkSoft)),
-                  Text(DateFormat('MMM d').format(DateTime.now()), style: MomText.rowLabel(mom.ink)),
+                  Text(DateFormat('MMM d').format(widget.existing?.spentAt ?? DateTime.now()), style: MomText.rowLabel(mom.ink)),
                 ],
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
             PrimaryButton(
-              label: _saving ? 'Saving…' : 'Add expense',
+              label: _saving ? 'Saving…' : (_isEditing ? 'Save changes' : 'Add expense'),
               onPressed: (_canSave && !_saving) ? _save : null,
             ),
           ],

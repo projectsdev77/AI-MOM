@@ -434,15 +434,25 @@ class _CategoryExpensesSheet extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${e.spentAt.month}/${e.spentAt.day}${e.note != null && e.note!.isNotEmpty ? ' — ${e.note}' : ''}',
-                            style: MomText.body(mom.inkSoft),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+                        onTap: () {
+                          Navigator.pop(context);
+                          showAddExpenseSheet(context, existing: e);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${e.spentAt.month}/${e.spentAt.day}${e.note != null && e.note!.isNotEmpty ? ' — ${e.note}' : ''}',
+                                style: MomText.body(mom.inkSoft),
+                              ),
+                              Text(formatMoney(e.amountCents, currency), style: MomText.rowLabel(mom.ink)),
+                            ],
                           ),
-                          Text(formatMoney(e.amountCents, currency), style: MomText.rowLabel(mom.ink)),
-                        ],
+                        ),
                       ),
                     ),
                   ),
