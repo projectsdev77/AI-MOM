@@ -24,6 +24,7 @@ export type Intent =
   | 'task_named'
   | 'task_count'
   | 'task_procrastinated'
+  | 'habit_streak'
   | 'water'
   | 'water_unlogged'
   | 'sleep'
@@ -37,6 +38,38 @@ export type Intent =
   | 'expense_log';
 
 export type Vars = Record<string, string | number | undefined>;
+
+/**
+ * Facts about the person (from onboarding) or the moment that make an extra
+ * line eligible. topics.ts decides which apply; PERSONAL below says which
+ * lines need which. Typed so a line can't ask for a tag nothing produces.
+ */
+export type Tag =
+  | 'goal_healthier'
+  | 'goal_spend_less'
+  | 'goal_more_done'
+  | 'goal_habits'
+  | 'routine_early'
+  | 'routine_9to5'
+  | 'routine_night'
+  | 'routine_irregular'
+  | 'living_alone'
+  | 'living_partner'
+  | 'living_family'
+  | 'living_roommates'
+  | 'stressor'
+  | 'morning'
+  | 'evening'
+  | 'task_habit';
+
+/** Of the time a usable personalised line is picked over a generic one. */
+const PERSONAL_SHARE = 0.6;
+
+interface PersonalLine {
+  needs: Tag[];
+  text: string;
+}
+const p = (needs: Tag[], text: string): PersonalLine => ({ needs, text });
 
 const COPY: Record<Intent, Record<Tone, string[]>> = {
   // {task} is one real open task. {name} is the person's first name.
@@ -87,6 +120,26 @@ const COPY: Record<Intent, Record<Tone, string[]>> = {
       `Still {count} open today. Start with the quick one.`,
       `{count} tasks to go. Pick one and I'll stop texting.`,
       `Your list has {count} open items. Open it and pick one.`,
+    ],
+  },
+
+  // {task} is a recurring task that is still open today and has a streak of
+  // {streak} days (2 or more), for people whose goal is to build habits.
+  habit_streak: {
+    tough: [
+      `Your {streak} day streak on "{task}" dies today if you skip it.`,
+      `{streak} days in a row on "{task}". Don't throw it away.`,
+      `Do "{task}" or lose your {streak} day streak. Your call.`,
+    ],
+    gentle: [
+      `You've kept "{task}" going for {streak} days. Today is the next one.`,
+      `{streak} days of "{task}" so far. You've built something, so keep it going.`,
+      `Your {streak} day streak on "{task}" is worth protecting.`,
+    ],
+    mix: [
+      `{streak} days in a row on "{task}". Keep it going today.`,
+      `"{task}" is at {streak} days. Don't break it now.`,
+      `Your streak on "{task}" is {streak} days. One more today.`,
     ],
   },
 
@@ -326,6 +379,128 @@ const COPY: Record<Intent, Record<Tone, string[]>> = {
   },
 };
 
+// Lines that only make sense for someone who gave a particular answer at
+// onboarding (or at a particular time of day). Used in preference to the
+// generic lines above when they apply. See Tag for what each need means.
+// Nothing here ever quotes the person's own free text: a stressor, for
+// example, is only ever acknowledged ("a lot on your mind"), never repeated,
+// because a push notification shows on the lock screen.
+const PERSONAL: Partial<Record<Intent, Record<Tone, PersonalLine[]>>> = {
+  task_named: {
+    tough: [
+      p(['routine_early', 'morning'], `You're up early. Use it on "{task}".`),
+      p(['routine_night', 'evening'], `I know you come alive late. "{task}" still can't wait for midnight.`),
+      p(['routine_9to5', 'evening'], `Work is over. "{task}" is next.`),
+      p(['routine_irregular'], `No fixed schedule is not an excuse. "{task}", now.`),
+      p(['living_alone'], `Nobody else is doing "{task}" for you. Go.`),
+      p(['living_partner'], `Do "{task}" before it turns into a conversation at home.`),
+      p(['living_family'], `Everyone at home has their own stuff going on. "{task}" is still yours.`),
+      p(['living_roommates'], `Your roommates aren't doing "{task}" for you. Neither am I.`),
+      p(['stressor'], `Stressed is exactly when you start avoiding things. Don't. "{task}".`),
+      p(['goal_habits', 'task_habit'], `You said you want to build habits. "{task}" is one, and it's open.`),
+    ],
+    gentle: [
+      p(['routine_early', 'morning'], `Mornings are your best time. "{task}" would feel good to finish early.`),
+      p(['routine_night', 'evening'], `Your evening energy is coming. "{task}" would be a nice thing to finish with it.`),
+      p(['routine_9to5', 'evening'], `You're done with work for the day. "{task}" is a nice small thing to close it out.`),
+      p(['routine_irregular'], `No two days look the same for you, so let's pin "{task}" down right now.`),
+      p(['living_alone'], `It's just you at home, so "{task}" is all yours. Maybe one small step?`),
+      p(['living_partner'], `Maybe finish "{task}" so your evening together can be lighter.`),
+      p(['living_family'], `Home can be busy. Find five quiet minutes for "{task}".`),
+      p(['living_roommates'], `Maybe find a quiet corner at home for "{task}"?`),
+      p(['stressor'], `I know you've got a lot on your mind. "{task}" is a small one to take off the pile.`),
+      p(['goal_habits', 'task_habit'], `You told me you want to build habits. "{task}" today is one more small proof.`),
+    ],
+    mix: [
+      p(['routine_early', 'morning'], `You're an early riser, so "{task}" is easy to knock out before the day gets going.`),
+      p(['routine_night', 'evening'], `Night owl hours are close. Get "{task}" done before you go full gremlin.`),
+      p(['routine_9to5', 'evening'], `Workday's over. "{task}" is still waiting.`),
+      p(['routine_irregular'], `Your days don't follow a pattern, so "{task}" won't remind itself. Do it now.`),
+      p(['living_alone'], `You live on your own, so "{task}" is on you. Ten minutes.`),
+      p(['living_partner'], `"{task}" is still open. Get it done and it's one less thing to talk about at home.`),
+      p(['living_family'], `Get "{task}" done before the house gets busy.`),
+      p(['living_roommates'], `Shared house, shared noise. Carve out ten minutes for "{task}".`),
+      p(['stressor'], `A lot going on lately, I know. Getting "{task}" done clears some head space.`),
+      p(['goal_habits', 'task_habit'], `Building habits means showing up. "{task}" is waiting.`),
+    ],
+  },
+
+  task_count: {
+    tough: [
+      p(['goal_more_done'], `You wanted to get more done. {count} things still open today.`),
+      p(['stressor'], `Stress is when momentum matters most. {count} things left. Start.`),
+      p(['routine_9to5', 'evening'], `Work's done for the day. {count} things still open.`),
+    ],
+    gentle: [
+      p(['goal_more_done'], `You told me you want to get more done. {count} left today, and each one counts.`),
+      p(['stressor'], `I know there's a lot on your mind. {count} things left today, one at a time.`),
+      p(['routine_9to5', 'evening'], `You're done with work. {count} things left today, whenever you're ready.`),
+    ],
+    mix: [
+      p(['goal_more_done'], `Get-more-done check: {count} still open today.`),
+      p(['stressor'], `A lot going on lately. {count} things left, and you can take them one at a time.`),
+      p(['routine_9to5', 'evening'], `Workday's over. {count} things still open.`),
+    ],
+  },
+
+  water: {
+    tough: [p(['goal_healthier'], `You said you wanted to get healthier. {have} of {goal} glasses says otherwise.`)],
+    gentle: [p(['goal_healthier'], `You told me you want to get healthier. A glass of water is an easy start. {have} of {goal} so far.`)],
+    mix: [p(['goal_healthier'], `Getting healthier starts small: {have} of {goal} glasses so far.`)],
+  },
+  water_unlogged: {
+    tough: [p(['goal_healthier'], `You wanted to get healthier. Not one glass logged today.`)],
+    gentle: [p(['goal_healthier'], `You told me you want to be healthier. A first glass of water today would be a nice start.`)],
+    mix: [p(['goal_healthier'], `Getting healthier starts with a glass of water. Nothing logged yet today.`)],
+  },
+  sleep: {
+    tough: [p(['goal_healthier'], `Getting healthier includes sleep. Log last night.`)],
+    gentle: [p(['goal_healthier'], `You said you want to get healthier. How you slept is part of that. Log it when you can.`)],
+    mix: [p(['goal_healthier'], `Healthy habits include sleep. Log how you slept.`)],
+  },
+  workout: {
+    tough: [p(['goal_healthier'], `Getting healthier was your goal. {left} minutes of exercise left today.`)],
+    gentle: [p(['goal_healthier'], `You said you wanted to get healthier. {left} minutes of movement would count today.`)],
+    mix: [p(['goal_healthier'], `For the get-healthier plan: {left} minutes left to go today.`)],
+  },
+  activity: {
+    tough: [p(['goal_healthier'], `You wanted to get healthier. {left} minutes of {activity} left.`)],
+    gentle: [p(['goal_healthier'], `Your health goal would love {left} more minutes of {activity}.`)],
+    mix: [p(['goal_healthier'], `Get-healthier plan: {left} more minutes of {activity}.`)],
+  },
+  activity_unlogged: {
+    tough: [p(['goal_healthier'], `You wanted to get healthier. No {activity} logged today.`)],
+    gentle: [p(['goal_healthier'], `You told me you want to get healthier. Even a little {activity} today would help.`)],
+    mix: [p(['goal_healthier'], `Getting healthier means some {activity}. Nothing's logged today.`)],
+  },
+
+  budget_near: {
+    tough: [p(['goal_spend_less'], `You said you wanted to spend less. {pct}% of your budget is gone.`)],
+    gentle: [p(['goal_spend_less'], `You told me you want to spend less. You're at {pct}% of this month's budget.`)],
+    mix: [p(['goal_spend_less'], `Spend-less goal check: {pct}% of the budget is used.`)],
+  },
+  budget_over: {
+    tough: [p(['goal_spend_less'], `You said you wanted to spend less. You're over budget.`)],
+    gentle: [p(['goal_spend_less'], `You told me you want to spend less. You're over budget this month, so this is a good time to pause.`)],
+    mix: [p(['goal_spend_less'], `Spending less was the plan, and the budget's been passed. Time to pull back.`)],
+  },
+  category_near: {
+    tough: [p(['goal_spend_less'], `You wanted to spend less. {category} is at {pct}% of its budget.`)],
+    gentle: [p(['goal_spend_less'], `Since you want to spend less, {category} at {pct}% of its budget is worth a look.`)],
+    mix: [p(['goal_spend_less'], `Spend-less check: {category} is at {pct}% of budget.`)],
+  },
+  category_over: {
+    tough: [p(['goal_spend_less'], `You wanted to spend less. {category} is over budget.`)],
+    gentle: [p(['goal_spend_less'], `You told me you want to spend less. {category} went over budget, so maybe pause there.`)],
+    mix: [p(['goal_spend_less'], `Spend-less goal: {category} is already over budget.`)],
+  },
+  expense_log: {
+    tough: [p(['goal_spend_less'], `You said you want to spend less. You can't if you don't track it. {days} days without a log.`)],
+    gentle: [p(['goal_spend_less'], `Tracking helps you spend less. It's been {days} days since you logged anything.`)],
+    mix: [p(['goal_spend_less'], `Spending less starts with tracking. {days} days since your last log.`)],
+  },
+};
+
 export function toneFor(motivationStyle: string | null | undefined): Tone {
   if (motivationStyle === 'Tough love, tell it straight') return 'tough';
   if (motivationStyle === 'Gentle encouragement') return 'gentle';
@@ -335,7 +510,7 @@ export function toneFor(motivationStyle: string | null | undefined): Tone {
 
 const TOKEN = /\{(\w+)\}/g;
 
-function usable(template: string, vars: Vars): boolean {
+function hasValues(template: string, vars: Vars): boolean {
   for (const match of template.matchAll(TOKEN)) {
     const value = vars[match[1]];
     if (value === undefined || value === '') return false;
@@ -343,24 +518,38 @@ function usable(template: string, vars: Vars): boolean {
   return true;
 }
 
+/**
+ * Picks and fills in one line. A line is only eligible when every {token}
+ * in it has a value, and (for personalised lines) every tag it needs is
+ * present. When any personalised line is eligible it's chosen most of the
+ * time, since "you told me you want to spend less" is the point of having
+ * asked; generic lines cover the rest and everyone who has no match.
+ */
 export function renderNudge(
   intent: Intent,
   tone: Tone,
   vars: Vars,
+  tags: ReadonlySet<Tag> = new Set(),
   rand: () => number = Math.random,
 ): string {
-  const pool = COPY[intent][tone].filter((t) => usable(t, vars));
+  const generic = COPY[intent][tone].filter((t) => hasValues(t, vars));
+  const personal = (PERSONAL[intent]?.[tone] ?? [])
+    .filter((l) => l.needs.every((n) => tags.has(n)) && hasValues(l.text, vars))
+    .map((l) => l.text);
+
+  const pool = personal.length > 0 && (generic.length === 0 || rand() < PERSONAL_SHARE) ? personal : generic;
   if (pool.length === 0) throw new Error(`No usable ${tone} line for ${intent}`);
   const template = pool[Math.floor(rand() * pool.length)];
   return template.replace(TOKEN, (_, key: string) => String(vars[key]));
 }
 
 /** Every line, for counting and for tests that scan the wording. */
-export function allLines(): { intent: Intent; tone: Tone; line: string }[] {
-  const out: { intent: Intent; tone: Tone; line: string }[] = [];
+export function allLines(): { intent: Intent; tone: Tone; line: string; needs: Tag[] }[] {
+  const out: { intent: Intent; tone: Tone; line: string; needs: Tag[] }[] = [];
   for (const intent of Object.keys(COPY) as Intent[]) {
     for (const tone of Object.keys(COPY[intent]) as Tone[]) {
-      for (const line of COPY[intent][tone]) out.push({ intent, tone, line });
+      for (const line of COPY[intent][tone]) out.push({ intent, tone, line, needs: [] });
+      for (const l of PERSONAL[intent]?.[tone] ?? []) out.push({ intent, tone, line: l.text, needs: l.needs });
     }
   }
   return out;

@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         skipped++;
         continue;
       }
-      const line = renderNudge(chosen.intent, toneFor(candidate.motivation_style), chosen.vars);
+      const line = renderNudge(chosen.intent, toneFor(candidate.motivation_style), chosen.vars, chosen.tags);
       const ok = await sendPush(accessToken, serviceAccount.project_id, candidate.fcm_token, line);
       if (ok) {
         sent++;

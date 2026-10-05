@@ -9,13 +9,17 @@
 // when anything else has something to say, so a run of nudges mixes tasks,
 // health and finance instead of repeating one.
 
-import type { Intent, Vars } from './copy.ts';
+import type { Intent, Tag, Vars } from './copy.ts';
 
 export type Topic = 'tasks' | 'health' | 'finance';
 
 export interface PendingTask {
   title: string;
   category: string;
+  // Optional so a response from a database that hasn't had the latest
+  // migration yet still works; the nudge just has less to go on.
+  recurrence?: string; // 'none' | 'daily' | 'weekly' | 'custom'
+  streak_count?: number;
 }
 
 export interface Candidate {
@@ -29,6 +33,13 @@ export interface Candidate {
   last_nudge_topic: string | null;
   pending_count: number;
   pending_tasks: PendingTask[] | null;
+  // Onboarding answers (0015_nudge_onboarding_answers.sql). Optional for the
+  // same reason as PendingTask's extras.
+  goals?: string[] | null;
+  daily_routine?: string | null;
+  living_situation?: string | null;
+  // Only whether a stressor was given, never its text: see that migration.
+  has_stressor?: boolean | null;
 }
 
 export interface HealthFacts {
@@ -69,6 +80,7 @@ export interface Chosen {
   topic: Topic;
   intent: Intent;
   vars: Vars;
+  tags: Set<Tag>;
 }
 
 // Mirrors lib/core/constants/onboarding_options.dart's procrastinationOptions
@@ -99,6 +111,58 @@ const PROCRASTINATION_KEYWORDS: Record<string, RegExp> = {
 /** Share of the time a matching task gets the callout instead of a plain line. */
 const CALLOUT_SHARE = 0.6;
 
+// The exact strings onboarding saves (lib/core/constants/onboarding_options.dart)
+// mapped to the tags that make personalised lines eligible.
+const GOAL_TAG: Record<string, Tag> = {
+  'Get healthier': 'goal_healthier',
+  'Spend less': 'goal_spend_less',
+  'Get more done': 'goal_more_done',
+  'Build habits': 'goal_habits',
+};
+const ROUTINE_TAG: Record<string, Tag> = {
+  'Early riser': 'routine_early',
+  'Standard 9-to-5 kind of day': 'routine_9to5',
+  'Night owl': 'routine_night',
+  'Pretty irregular': 'routine_irregular',
+};
+const LIVING_TAG: Record<string, Tag> = {
+  'On my own': 'living_alone',
+  'With a partner or spouse': 'living_partner',
+  'With family': 'living_family',
+  'With roommates': 'living_roommates',
+};
+
+// Which topic a stated goal is about. Someone who said they want to get
+// healthier hears about health more often (and likewise for the others).
+const GOAL_TOPIC: Record<string, Topic> = {
+  'Get healthier': 'health',
+  'Spend less': 'finance',
+  'Get more done': 'tasks',
+  'Build habits': 'tasks',
+};
+
+// How late in the day "you haven't logged last night's sleep" still makes
+// sense, by daily routine. A night owl's night ends later.
+const SLEEP_REMINDER_HOUR: Record<string, number> = {
+  'Early riser': 12,
+  'Pretty irregular': 15,
+  'Night owl': 17,
+};
+
+/** What's true about this person right now, as tags for personalised lines. */
+function profileTags(c: Candidate, local: LocalTime): Set<Tag> {
+  const tags = new Set<Tag>();
+  for (const goal of c.goals ?? []) if (GOAL_TAG[goal]) tags.add(GOAL_TAG[goal]);
+  const routine = c.daily_routine ? ROUTINE_TAG[c.daily_routine] : undefined;
+  if (routine) tags.add(routine);
+  const living = c.living_situation ? LIVING_TAG[c.living_situation] : undefined;
+  if (living) tags.add(living);
+  if (c.has_stressor) tags.add('stressor');
+  if (local.hour >= 5 && local.hour < 12) tags.add('morning');
+  if (local.hour >= 17 && local.hour < 23) tags.add('evening');
+  return tags;
+}
+
 /** Whether this open task is one of the things they said they put off. */
 export function matchesProcrastination(task: PendingTask, areas: string[]): boolean {
   return areas.some((area) =>
@@ -113,6 +177,7 @@ const NEAR_CATEGORY = 0.85;
 const LOG_REMINDER_MIN_DAYS = 3;
 export const LOG_LOOKBACK_DAYS = 30;
 // A "you haven't logged your sleep" nudge is pointless late in the day.
+// This is the default cutoff; SLEEP_REMINDER_HOUR adjusts it per routine.
 const SLEEP_REMINDER_BEFORE_HOUR = 14;
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -173,6 +238,9 @@ function shorten(title: string, max = 40): string {
 interface Option {
   intent: Intent;
   vars: Vars;
+  // Extra tags that apply only because of what this particular option is
+  // about (e.g. the task it names is a habit).
+  tags?: Tag[];
   // Within one topic only the highest-priority options compete, so being
   // over budget always beats a gentle logging reminder.
   priority: number;
@@ -182,12 +250,22 @@ function pick<T>(items: T[], rand: () => number): T {
   return items[Math.floor(rand() * items.length)];
 }
 
+function isHabit(t: PendingTask): boolean {
+  return t.recurrence !== undefined && t.recurrence !== 'none';
+}
+
 function taskOptions(c: Candidate, name: string | undefined, rand: () => number): Option[] {
   const tasks = c.pending_tasks ?? [];
   if (c.pending_count <= 0 || tasks.length === 0) return [];
 
+  const named = pick(tasks, rand);
   const options: Option[] = [
-    { intent: 'task_named', vars: { task: shorten(pick(tasks, rand).title), name }, priority: 1 },
+    {
+      intent: 'task_named',
+      vars: { task: shorten(named.title), name },
+      tags: isHabit(named) ? ['task_habit'] : [],
+      priority: 1,
+    },
   ];
   if (c.pending_count >= 2) {
     options.push({ intent: 'task_count', vars: { count: c.pending_count, name }, priority: 1 });
@@ -204,10 +282,25 @@ function taskOptions(c: Candidate, name: string | undefined, rand: () => number)
       priority: rand() < CALLOUT_SHARE ? 2 : 1,
     });
   }
+
+  // For people whose goal is to build habits: a recurring task that's still
+  // open today and has a streak worth protecting.
+  if ((c.goals ?? []).includes('Build habits')) {
+    const atRisk = tasks
+      .filter((t) => isHabit(t) && (t.streak_count ?? 0) >= 2)
+      .sort((a, b) => (b.streak_count ?? 0) - (a.streak_count ?? 0))[0];
+    if (atRisk) {
+      options.push({
+        intent: 'habit_streak',
+        vars: { task: shorten(atRisk.title), streak: atRisk.streak_count },
+        priority: rand() < CALLOUT_SHARE ? 2 : 1,
+      });
+    }
+  }
   return options;
 }
 
-function healthOptions(h: HealthFacts, hour: number, rand: () => number): Option[] {
+function healthOptions(h: HealthFacts, hour: number, sleepCutoffHour: number, rand: () => number): Option[] {
   const options: Option[] = [];
 
   // "You haven't logged any X today" (priority 2) is the more useful thing
@@ -224,7 +317,7 @@ function healthOptions(h: HealthFacts, hour: number, rand: () => number): Option
       });
     }
   }
-  if (h.sleepTargetHours != null && h.sleepHours == null && hour < SLEEP_REMINDER_BEFORE_HOUR) {
+  if (h.sleepTargetHours != null && h.sleepHours == null && hour < sleepCutoffHour) {
     options.push({ intent: 'sleep', vars: {}, priority: 2 });
   }
   if (h.workoutTargetMinutes != null && h.workoutMinutes < h.workoutTargetMinutes) {
@@ -325,7 +418,10 @@ export function chooseNudge(
   // Health and finance are a paid feature: the plan is checked here, not
   // just by whoever decides to fetch the facts.
   if (candidate.plan === 'full' && facts) {
-    if (facts.health) byTopic.health = healthOptions(facts.health, local.hour, rand);
+    if (facts.health) {
+      const cutoff = SLEEP_REMINDER_HOUR[candidate.daily_routine ?? ''] ?? SLEEP_REMINDER_BEFORE_HOUR;
+      byTopic.health = healthOptions(facts.health, local.hour, cutoff, rand);
+    }
     if (facts.finance) byTopic.finance = financeOptions(facts.finance);
   }
 
@@ -334,10 +430,18 @@ export function chooseNudge(
 
   // Rotate: skip the topic used last time unless it's the only one left.
   const fresh = available.filter((t) => t !== candidate.last_nudge_topic);
-  const topic = pick(fresh.length > 0 ? fresh : available, rand);
+  const candidates = fresh.length > 0 ? fresh : available;
+  // A topic that matches a stated goal counts double, so someone who said
+  // they want to get healthier hears about health more, without it ever
+  // crowding the others out entirely.
+  const favoured = new Set((candidate.goals ?? []).map((g) => GOAL_TOPIC[g]).filter(Boolean));
+  const weighted = candidates.flatMap((t) => (favoured.has(t) ? [t, t] : [t]));
+  const topic = pick(weighted, rand);
 
   const options = byTopic[topic];
   const top = Math.max(...options.map((o) => o.priority));
   const chosen = pick(options.filter((o) => o.priority === top), rand);
-  return { topic, intent: chosen.intent, vars: chosen.vars };
+  const tags = profileTags(candidate, local);
+  for (const t of chosen.tags ?? []) tags.add(t);
+  return { topic, intent: chosen.intent, vars: chosen.vars, tags };
 }
