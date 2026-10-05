@@ -50,6 +50,12 @@ app.*.map.json
 # Local secrets (dart-define-from-file) — see README.md
 /config/local.json
 
+# Firebase's native Android config (download from Firebase Console ->
+# Project settings -> Your apps -> the Android app -> google-services.json).
+# Required for FCM push token generation specifically — see
+# android/app/build.gradle.kts and android/settings.gradle.kts.
+/android/app/google-services.json
+
 # Supabase CLI's local machine cache (created by `supabase link`) —
 # per-machine state, not something to share across checkouts
 /supabase/.temp/

@@ -210,7 +210,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       // hides all of that from the user, so it has to go to the log
       // instead or every failure looks identical from a bug report.
       debugPrint('social sign-in failed: $e\n$st');
-      setState(() => _error = friendlyAuthError(e));
+      if (mounted) setState(() => _error = friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

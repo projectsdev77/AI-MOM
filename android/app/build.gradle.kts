@@ -2,6 +2,10 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Reads android/app/google-services.json (not committed — see
+    // README) to generate the native resources FCM token generation
+    // needs. See settings.gradle.kts for why this is required at all.
+    id("com.google.gms.google-services")
 }
 
 android {
