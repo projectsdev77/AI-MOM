@@ -97,16 +97,22 @@ const COPY: Record<Intent, Record<Tone, string[]>> = {
       `"{task}" again? That's exactly what you told me you put off. Today, not tomorrow.`,
       `I know "{task}" is your thing to avoid. Do it anyway.`,
       `"{task}" is the one you always dodge. Not today.`,
+      `"{task}" is exactly what you said you put off. Do it now.`,
+      `I know what you do with "{task}". You avoid it. Not today.`,
     ],
     gentle: [
       `"{task}" is the kind of thing you find hard to start. Just do the first minute.`,
       `I know "{task}" isn't easy to get going on. A small start counts.`,
       `You told me this kind of thing is hard to begin. "{task}" can be tiny today.`,
+      `"{task}" is the kind of thing you tend to put off. Just open it and see.`,
+      `Starting "{task}" is the hardest part for you. Make it tiny and begin.`,
     ],
     mix: [
       `"{task}" is on the list, and I remember it's your weak spot. Start small.`,
       `This is the kind of task you said you put off. "{task}" is waiting.`,
       `"{task}" again. You know the drill, and I know you. Go.`,
+      `"{task}" is one of the things you put off. Do five minutes and see.`,
+      `Putting off "{task}" again? Five minutes, then decide.`,
     ],
   },
 

@@ -82,6 +82,30 @@ const PROCRASTINATION_CATEGORY: Record<string, string> = {
   'Spending less': 'money',
 };
 
+// Category alone misses most real tasks: people file "Go to the gym" under
+// Personal, "Do laundry" under Personal, "Send the report" under whatever
+// was selected. So a task also counts as one of the things they said they
+// put off when its TITLE clearly says so. Kept to unambiguous words on
+// purpose: a wrong callout ("same thing you always put off" about a task
+// that isn't) is worse than a missed one.
+const PROCRASTINATION_KEYWORDS: Record<string, RegExp> = {
+  'Exercise': /\b(gym|workout|work out|exercise|jog|jogging|running|yoga|stretch|stretching|swim|swimming|lift|lifting|cardio|pilates|hike|hiking|walk|walking|pushups?|push-ups?|squats?)\b/i,
+  'Chores': /\b(chores?|dish|dishes|laundry|clean|cleaning|vacuum|vacuuming|trash|garbage|tidy|sweep|mop|mopping|iron|ironing|declutter)\b/i,
+  'Work deadlines': /\b(deadline|report|presentation|proposal|invoice|submit|assignment|slides|client|timesheet)\b/i,
+  'Sleeping on time': /\b(sleep|bedtime|bed|alarm|wind down|lights out)\b/i,
+  'Spending less': /\b(budget|savings|bills?|rent|subscriptions?|expenses?)\b/i,
+};
+
+/** Share of the time a matching task gets the callout instead of a plain line. */
+const CALLOUT_SHARE = 0.6;
+
+/** Whether this open task is one of the things they said they put off. */
+export function matchesProcrastination(task: PendingTask, areas: string[]): boolean {
+  return areas.some((area) =>
+    PROCRASTINATION_CATEGORY[area] === task.category || PROCRASTINATION_KEYWORDS[area]?.test(task.title) === true
+  );
+}
+
 // Share of a budget used before "you're getting close" is worth saying.
 const NEAR_OVERALL = 0.8;
 const NEAR_CATEGORY = 0.85;
@@ -169,9 +193,16 @@ function taskOptions(c: Candidate, name: string | undefined, rand: () => number)
     options.push({ intent: 'task_count', vars: { count: c.pending_count, name }, priority: 1 });
   }
   const areas = c.procrastination_areas ?? [];
-  const hit = tasks.find((t) => areas.some((a) => PROCRASTINATION_CATEGORY[a] === t.category));
+  const hit = tasks.find((t) => matchesProcrastination(t, areas));
   if (hit) {
-    options.push({ intent: 'task_procrastinated', vars: { task: shorten(hit.title), name }, priority: 1 });
+    // The most personal thing Mom can say, so it wins most of the time,
+    // but not always: the same callout every hour about the same task
+    // would stop landing.
+    options.push({
+      intent: 'task_procrastinated',
+      vars: { task: shorten(hit.title), name },
+      priority: rand() < CALLOUT_SHARE ? 2 : 1,
+    });
   }
   return options;
 }
