@@ -284,7 +284,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void _selectThenAdvance(VoidCallback applySelection) {
     setState(applySelection);
     final stepAtSelection = _step;
-    Future.delayed(const Duration(milliseconds: 700), () {
+    Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted && _step == stepAtSelection) _next();
     });
   }
@@ -720,7 +720,7 @@ class _NameStepState extends ConsumerState<_NameStep> {
       if (_showMessage) setState(() => _showMessage = false);
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 600), () {
+    _debounce = Timer(const Duration(milliseconds: 1000), () {
       if (mounted) setState(() => _showMessage = true);
     });
   }
