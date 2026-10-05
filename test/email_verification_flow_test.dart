@@ -107,9 +107,7 @@ void _ignoreTestFontOverflow() {
 
 Future<void> _pumpOnboarding(WidgetTester tester, _FakeAuth auth, _FakeProfiles profiles) async {
   _ignoreTestFontOverflow();
-  // 411 x 800 logical pixels, like the Pixel emulator. (At 360 wide the avatar
-  // row on the first screen overflows by a few pixels, which is unrelated to
-  // what these tests check.)
+  // 411 x 800 logical pixels, like the Pixel emulator.
   tester.view.physicalSize = const Size(1233, 2400);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);

@@ -656,39 +656,60 @@ class _AvatarStep extends ConsumerWidget {
                     const SizedBox(height: 6),
                     Text("Pick a look. She's Mom either way.", style: MomText.body(mom.inkMuted), textAlign: TextAlign.center),
                     const SizedBox(height: 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        for (final style in styles)
-                          GestureDetector(
-                            onTap: () {
-                              ref.read(momAvatarStyleProvider.notifier).state = style;
-                              onSelected();
-                            },
-                            child: Opacity(
-                              opacity: hasPicked && selected == style ? 1 : 0.72,
-                              child: Container(
-                                padding: const EdgeInsets.all(2.5),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: hasPicked && selected == style ? mom.espresso : Colors.transparent,
-                                    width: 2.5,
+                    // Each avatar sits in a ring that adds 5 on every side, so five
+                    // of them need 350 across at full size. That's more than a
+                    // 360 or 375 wide phone has room for (screen width less the
+                    // 20 either side), which made the row overflow. They shrink
+                    // to fit when they have to, and are the usual 60 otherwise.
+                    // Capped in width and centred, so on a tablet or other wide
+                    // screen the five sit together in the middle instead of
+                    // being spread out to the screen edges.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          const ringAllRound = 10.0;
+                          const minGap = 4.0;
+                          final avatarSize = ((constraints.maxWidth - styles.length * ringAllRound - (styles.length - 1) * minGap) /
+                                  styles.length)
+                              .clamp(44.0, 60.0)
+                              .toDouble();
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              for (final style in styles)
+                                GestureDetector(
+                                  onTap: () {
+                                    ref.read(momAvatarStyleProvider.notifier).state = style;
+                                    onSelected();
+                                  },
+                                  child: Opacity(
+                                    opacity: hasPicked && selected == style ? 1 : 0.72,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2.5),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: hasPicked && selected == style ? mom.espresso : Colors.transparent,
+                                          width: 2.5,
+                                        ),
+                                        boxShadow: hasPicked && selected == style
+                                            ? [BoxShadow(color: mom.promoPeach, blurRadius: 0, spreadRadius: 4)]
+                                            : null,
+                                      ),
+                                      child: MomAvatar(
+                                        style: style,
+                                        expression: hasPicked && selected == style ? MomExpression.happy : MomExpression.normal,
+                                        showMoodBadge: false,
+                                        size: avatarSize,
+                                      ),
+                                    ),
                                   ),
-                                  boxShadow: hasPicked && selected == style
-                                      ? [BoxShadow(color: mom.promoPeach, blurRadius: 0, spreadRadius: 4)]
-                                      : null,
                                 ),
-                                child: MomAvatar(
-                                  style: style,
-                                  expression: hasPicked && selected == style ? MomExpression.happy : MomExpression.normal,
-                                  showMoodBadge: false,
-                                  size: 60,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                            ],
+                          );
+                        },
+                      ),
                     ),
                     const SizedBox(height: 18),
                     Container(
