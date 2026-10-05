@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
@@ -14,6 +16,12 @@ class PushService {
   PushService._();
 
   static bool _ready = false;
+
+  /// The one live listener for token rotation. Kept so it can be replaced
+  /// or cancelled: a listener left behind by a previous sign-in keeps
+  /// writing refreshed tokens onto THAT account's profile row, which would
+  /// keep nudging this device for an account nobody is signed into.
+  static StreamSubscription<String>? _tokenRefreshSub;
 
   static FirebaseOptions get _options => FirebaseOptions(
         apiKey: Env.firebaseApiKey,
@@ -97,13 +105,32 @@ class PushService {
       final token = await FirebaseMessaging.instance.getToken();
       debugPrint('PushService.registerToken: getToken() returned ${token == null ? 'null' : 'a token'}');
       if (token != null) await onToken(token);
-      FirebaseMessaging.instance.onTokenRefresh.listen(onToken);
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = FirebaseMessaging.instance.onTokenRefresh.listen(onToken);
     } catch (e, st) {
       // Push just won't work on this device until whatever's wrong
       // (usually stale Play Services) is fixed — not worth taking
       // anything else down over. Logged so that failure is visible
       // instead of silently never reaching profiles.fcm_token.
       debugPrint('PushService.registerToken failed: $e\n$st');
+    }
+  }
+
+  /// Call on sign-out. Stops writing refreshed tokens onto the account that
+  /// just signed out, and deletes this device's token with Firebase so the
+  /// old one stops working for good: any copy of it still sitting on a
+  /// profile row (say the sign-out happened offline, before it could be
+  /// cleared) then starts failing as UNREGISTERED, which send-nudges treats
+  /// as a signal to drop it. The next sign-in's registerToken mints a fresh
+  /// one. Never throws: failing to forget a token must not block signing out.
+  static Future<void> forgetToken() async {
+    try {
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = null;
+      if (!_ready || kIsWeb) return;
+      await FirebaseMessaging.instance.deleteToken();
+    } catch (e, st) {
+      debugPrint('PushService.forgetToken failed: $e\n$st');
     }
   }
 }

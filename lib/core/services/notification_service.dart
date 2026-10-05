@@ -119,6 +119,21 @@ class NotificationService {
     }
   }
 
+  /// Every reminder this device has scheduled. Called on sign-out: the
+  /// reminders are OS alarms that outlive the session, so without this a
+  /// logged-out phone keeps buzzing "Don't forget: …" for an account
+  /// nobody is signed into, and the next person to sign in would get
+  /// the previous account's. Signing in again re-registers the right ones
+  /// (see TasksNotifier.refresh).
+  static Future<void> cancelAll() async {
+    if (!_supported || !_ready) return;
+    try {
+      await _plugin.cancelAll();
+    } catch (e, st) {
+      debugPrint('NotificationService.cancelAll failed: $e\n$st');
+    }
+  }
+
   static Future<void> cancelTaskReminder(String taskId) async {
     if (!_supported || !_ready) return;
     try {

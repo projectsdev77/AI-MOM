@@ -20,6 +20,7 @@
 // since Deno edge functions don't have one readily available.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { renderNudge, toneFor } from './copy.ts';
+import { type PushOutcome, pushOutcome } from './fcm.ts';
 import { loadFacts } from './facts.ts';
 import { type Candidate, chooseNudge, type Facts, localTime, type LocalTime, type Topic } from './topics.ts';
 
@@ -91,13 +92,16 @@ async function getAccessToken(account: ServiceAccount): Promise<string> {
   return data.access_token as string;
 }
 
-async function sendPush(accessToken: string, projectId: string, token: string, body: string): Promise<boolean> {
+async function sendPush(accessToken: string, projectId: string, token: string, body: string): Promise<PushOutcome> {
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: { token, notification: { title: 'Mom', body } } }),
   });
-  return res.ok;
+  if (res.ok) return 'sent';
+  const text = await res.text();
+  console.error('FCM send failed', res.status, text);
+  return pushOutcome(res.status, text);
 }
 
 Deno.serve(async (req) => {
@@ -144,6 +148,7 @@ Deno.serve(async (req) => {
 
   let sent = 0;
   let skipped = 0;
+  let deadTokens = 0;
   const sentByTopic = new Map<Topic, string[]>();
   for (const candidate of people) {
     try {
@@ -155,12 +160,18 @@ Deno.serve(async (req) => {
         continue;
       }
       const line = renderNudge(chosen.intent, toneFor(candidate.motivation_style), chosen.vars, chosen.tags);
-      const ok = await sendPush(accessToken, serviceAccount.project_id, candidate.fcm_token, line);
-      if (ok) {
+      const outcome = await sendPush(accessToken, serviceAccount.project_id, candidate.fcm_token, line);
+      if (outcome === 'sent') {
         sent++;
         const ids = sentByTopic.get(chosen.topic) ?? [];
         ids.push(candidate.user_id);
         sentByTopic.set(chosen.topic, ids);
+      } else if (outcome === 'dead_token') {
+        // Uninstalled, or deleted at sign-out. Drop it so it isn't retried
+        // every run. Matching on the token too means a fresh one registered
+        // since this run started is never wiped by accident.
+        deadTokens++;
+        await supabase.from('profiles').update({ fcm_token: null }).eq('id', candidate.user_id).eq('fcm_token', candidate.fcm_token);
       }
     } catch (e) {
       // One person's bad data shouldn't stop everyone else's nudge.
@@ -178,7 +189,7 @@ Deno.serve(async (req) => {
   }
 
   const byTopic = Object.fromEntries([...sentByTopic].map(([topic, ids]) => [topic, ids.length]));
-  return new Response(JSON.stringify({ sent, skipped, candidates: candidates.length, byTopic }), {
+  return new Response(JSON.stringify({ sent, skipped, deadTokens, candidates: candidates.length, byTopic }), {
     headers: { 'Content-Type': 'application/json' },
   });
 });

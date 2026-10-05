@@ -158,7 +158,9 @@ function profileTags(c: Candidate, local: LocalTime): Set<Tag> {
   const living = c.living_situation ? LIVING_TAG[c.living_situation] : undefined;
   if (living) tags.add(living);
   if (c.has_stressor) tags.add('stressor');
-  if (local.hour >= 5 && local.hour < 12) tags.add('morning');
+  // From 7am: an early riser's lines shouldn't fire at 5am. This only
+  // gates which lines are eligible; it isn't a quiet-hours rule.
+  if (local.hour >= 7 && local.hour < 12) tags.add('morning');
   if (local.hour >= 17 && local.hour < 23) tags.add('evening');
   return tags;
 }

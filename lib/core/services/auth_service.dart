@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/deep_links.dart';
 import '../config/env.dart';
+import 'notification_service.dart';
 import 'purchases_service.dart';
 import 'push_service.dart';
 
@@ -187,8 +188,32 @@ class AuthService {
   Future<void> refreshDeviceRegistration() => _afterSignIn();
 
   Future<void> signOut() async {
+    // Has to come first: clearing the token on the server needs the
+    // session that signOut() is about to end.
+    await _stopNotifications();
     await PurchasesService.logOut();
     await _client.auth.signOut();
+  }
+
+  /// Signing out used to only end the login session. The server still held
+  /// this device's push token on the account's profile, so Mom's nudges kept
+  /// arriving for an account nobody was signed into, the phone's
+  /// scheduled task reminders kept firing, and the next account to sign in
+  /// on the same device would be nudged alongside it. Each step is
+  /// independent and never allowed to block the sign-out itself: if the
+  /// profile update fails (say, offline), deleting the token with Firebase
+  /// still makes it stop working, and send-nudges then drops it.
+  Future<void> _stopNotifications() async {
+    final userId = currentUser?.id;
+    if (userId != null) {
+      try {
+        await _client.from('profiles').update({'fcm_token': null}).eq('id', userId);
+      } catch (e) {
+        debugPrint('AuthService._stopNotifications: could not clear fcm_token: $e');
+      }
+    }
+    await PushService.forgetToken();
+    await NotificationService.cancelAll();
   }
 
   /// Deletes all of the user's rows via `on delete cascade` from
