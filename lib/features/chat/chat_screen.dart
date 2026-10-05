@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -100,7 +101,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _atWeeklyLimit = true;
         _messages.removeLast(); // the message was never sent server-side
       });
-    } catch (e) {
+    } catch (e, st) {
+      // The banner is intentionally generic (raw Supabase/network errors
+      // aren't something to show someone mid-conversation), but that
+      // means the real cause has to go to the log or every failure here
+      // looks identical from a bug report.
+      debugPrint('ChatScreen._send failed: $e\n$st');
       setState(() {
         _error = "Mom didn't answer. Try again in a moment.";
         _messages.removeLast();
