@@ -120,6 +120,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _submitting = true;
       _error = null;
     });
+    // Captured now, while context is definitely valid, rather than read
+    // from `ref` later — see _saveOnboardingAnswers' note on why nothing
+    // past the sign-in await can rely on this widget still being mounted.
+    final container = ProviderScope.containerOf(context, listen: false);
     final auth = ref.read(authServiceProvider);
     final profileRepository = ref.read(profileRepositoryProvider);
     final momAvatarStyle = ref.read(momAvatarStyleProvider).name;
@@ -144,6 +148,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           return;
         }
         await _saveOnboardingAnswers(
+          container: container,
           auth: auth,
           profileRepository: profileRepository,
           momAvatarStyle: momAvatarStyle,
@@ -204,8 +209,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // `ref` post-dispose throws ("Cannot use ref after the widget was
   // disposed"), and reading a disposed TextEditingController's `.text`
   // throws too — so callers capture all of this while still definitely
-  // mounted, before that await.
+  // mounted, before that await. `container` is the one exception: it's
+  // the app-wide ProviderContainer (see main.dart), which outlives this
+  // screen, so it's still safe to use even after disposal.
   Future<void> _saveOnboardingAnswers({
+    required ProviderContainer container,
     required AuthService auth,
     required ProfileRepository profileRepository,
     required String momAvatarStyle,
@@ -226,6 +234,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       motivationStyle: _motivationStyle,
       currentStressor: currentStressor,
     );
+    // profileProvider already refetched once, the moment the auth-state
+    // listener fired right after sign-in — before this write landed, so
+    // it caught the bare trigger-created row (e.g. the Google account's
+    // own name for social sign-in, empty goals/procrastination for
+    // everyone). Nothing else re-fetches it afterward, so without this
+    // the dashboard is stuck showing that stale snapshot indefinitely.
+    container.invalidate(profileProvider);
   }
 
   Future<void> _socialSignIn(Future<void> Function() signIn) async {
@@ -233,6 +248,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _submitting = true;
       _error = null;
     });
+    final container = ProviderScope.containerOf(context, listen: false);
     final auth = ref.read(authServiceProvider);
     final profileRepository = ref.read(profileRepositoryProvider);
     final momAvatarStyle = ref.read(momAvatarStyleProvider).name;
@@ -247,6 +263,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       // signInWithIdToken creates the account on first use either way.
       if (!_isLoginMode) {
         await _saveOnboardingAnswers(
+          container: container,
           auth: auth,
           profileRepository: profileRepository,
           momAvatarStyle: momAvatarStyle,
