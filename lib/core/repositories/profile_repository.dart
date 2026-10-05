@@ -11,6 +11,7 @@ class ProfileRepository {
     required List<String> goals,
     required List<String> procrastinationAreas,
     required String checkInFrequency,
+    String? name,
     String? dailyRoutine,
     String? livingSituation,
     String? motivationStyle,
@@ -21,6 +22,13 @@ class ProfileRepository {
       'goals': goals,
       'procrastination_areas': procrastinationAreas,
       'check_in_frequency': checkInFrequency,
+      // The handle_new_user trigger only ever seeds this from
+      // raw_user_meta_data, which email signup populates but Google/Apple
+      // sign-in doesn't (it's whatever the OAuth provider's own ID token
+      // happens to include, if anything) — so what was actually typed into
+      // onboarding's name step needs writing here too, for every sign-in
+      // method, or it's silently lost for social sign-in.
+      if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
       if (dailyRoutine != null) 'daily_routine': dailyRoutine,
       if (livingSituation != null) 'living_situation': livingSituation,
       if (motivationStyle != null) 'motivation_style': motivationStyle,

@@ -112,20 +112,21 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final auth = ref.read(authServiceProvider);
     final profileRepository = ref.read(profileRepositoryProvider);
     final momAvatarStyle = ref.read(momAvatarStyleProvider).name;
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final currentStressor = _stressorController.text;
     try {
       if (_isLoginMode) {
-        await auth.signInWithEmail(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+        await auth.signInWithEmail(email: email, password: password);
         // A returning user's profile already has real answers saved —
         // don't overwrite them with whatever's sitting in this blank
         // onboarding pass.
       } else {
         final signedInImmediately = await auth.signUpWithEmail(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          name: _nameController.text.trim(),
+          email: email,
+          password: password,
+          name: name,
         );
         if (!signedInImmediately) {
           if (mounted) setState(() => _awaitingEmailConfirmation = true);
@@ -135,6 +136,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           auth: auth,
           profileRepository: profileRepository,
           momAvatarStyle: momAvatarStyle,
+          name: name,
+          currentStressor: currentStressor,
         );
       }
       // The router's auth-state listener takes it from here and redirects
@@ -182,17 +185,21 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _goToStep(0);
   }
 
-  // Takes auth/profileRepository/momAvatarStyle as arguments rather than
-  // reading them from `ref` itself — this runs after an `await` for
-  // sign-in, and the router's auth-state listener can redirect (and
-  // dispose this widget) the instant the session appears, sometimes
-  // before this call even starts. Reading `ref` post-dispose throws
-  // ("Cannot use ref after the widget was disposed"), so callers
-  // capture these while still definitely mounted, before that await.
+  // Takes everything as arguments rather than reading `ref` or the text
+  // controllers directly — this runs after an `await` for sign-in, and
+  // the router's auth-state listener can redirect (and dispose this
+  // widget, and its TextEditingControllers with it) the instant the
+  // session appears, sometimes before this call even starts. Reading
+  // `ref` post-dispose throws ("Cannot use ref after the widget was
+  // disposed"), and reading a disposed TextEditingController's `.text`
+  // throws too — so callers capture all of this while still definitely
+  // mounted, before that await.
   Future<void> _saveOnboardingAnswers({
     required AuthService auth,
     required ProfileRepository profileRepository,
     required String momAvatarStyle,
+    required String name,
+    required String currentStressor,
   }) async {
     final userId = auth.currentUser?.id;
     if (userId == null) return;
@@ -202,10 +209,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       goals: _goals.toList(),
       procrastinationAreas: _procrastination.toList(),
       checkInFrequency: _frequency,
+      name: name,
       dailyRoutine: _dailyRoutine,
       livingSituation: _livingSituation,
       motivationStyle: _motivationStyle,
-      currentStressor: _stressorController.text,
+      currentStressor: currentStressor,
     );
   }
 
@@ -217,6 +225,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final auth = ref.read(authServiceProvider);
     final profileRepository = ref.read(profileRepositoryProvider);
     final momAvatarStyle = ref.read(momAvatarStyleProvider).name;
+    final name = _nameController.text.trim();
+    final currentStressor = _stressorController.text;
     try {
       await signIn();
       // Google/Apple sign-in doesn't distinguish new vs. returning users
@@ -229,6 +239,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           auth: auth,
           profileRepository: profileRepository,
           momAvatarStyle: momAvatarStyle,
+          name: name,
+          currentStressor: currentStressor,
         );
       }
     } catch (e, st) {
