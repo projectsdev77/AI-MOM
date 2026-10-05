@@ -39,12 +39,17 @@ class PushService {
       // With android/app/google-services.json present, Android's native
       // layer auto-initializes the default FirebaseApp before this Dart
       // code even runs — calling initializeApp again then throws
-      // [core/duplicate-app]. Without that file (iOS, or Android before
-      // it's added), nothing has initialized it yet, so this still does
-      // it explicitly from the --dart-define config as before.
-      if (Firebase.apps.isEmpty) {
+      // [core/duplicate-app]. Firebase.apps doesn't reflect that
+      // natively-only init in time to check for it beforehand, so this
+      // catches the specific error instead and treats it as success
+      // (it means a usable default app already exists, which is all
+      // this ever needed). Without google-services.json (iOS, or
+      // Android before it's added), nothing has initialized it yet, so
+      // this still does it explicitly from the --dart-define config.
+      try {
         await Firebase.initializeApp(options: _options);
-      } else {
+      } on FirebaseException catch (e) {
+        if (e.code != 'duplicate-app') rethrow;
         debugPrint('PushService.init: default Firebase app already initialized natively, reusing it');
       }
 
