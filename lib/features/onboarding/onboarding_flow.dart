@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/config/preview_mode.dart';
 import '../../core/constants/check_in_frequency.dart';
+import '../../core/constants/onboarding_options.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/repositories/profile_repository.dart';
@@ -32,15 +33,7 @@ class OnboardingFlow extends ConsumerStatefulWidget {
   ConsumerState<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
-const _goalOptions = ['Get more done', 'Build habits', 'Spend less', 'Get healthier'];
-const _procrastinationOptions = ['Exercise', 'Chores', 'Work deadlines', 'Sleeping on time', 'Spending less'];
-const _dailyRoutineOptions = ['Early riser', 'Standard 9-to-5 kind of day', 'Night owl', 'Pretty irregular'];
-const _dailyRoutineSubs = ['Up before 7, done by dinner', 'Weekday rhythm, protected evenings', 'Peak focus after 21:00', 'Shifts, travel, no fixed week'];
-const _livingSituationOptions = ['On my own', 'With a partner or spouse', 'With family', 'With roommates'];
-const _livingSituationSubs = ['Nobody else picks up the slack', 'Shared chores, shared blame', 'Kids, parents, or both', 'The dishes are political'];
-const _motivationStyleOptions = ['Gentle encouragement', 'Tough love, tell it straight', 'A mix of both'];
-const _motivationStyleSubs = ['Warm, patient, never sharp', 'She will bring up the streak you dropped', "Kind until you've stalled twice"];
-// Index-aligned with _motivationStyleOptions — Mom's reaction actually
+// Index-aligned with motivationStyleOptions — Mom's reaction actually
 // matches what was picked, instead of always reacting as if "Tough love"
 // was chosen regardless of the real answer.
 const _motivationStyleBubbles = [
@@ -373,14 +366,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   _MultiSelectStep(
                     title: "What are you here to work on?",
                     subtitle: 'Pick as many as apply.',
-                    options: _goalOptions,
+                    options: goalOptions,
                     selected: _goals,
                     onToggle: (o) => setState(() => _goals.contains(o) ? _goals.remove(o) : _goals.add(o)),
                   ),
                   _MultiSelectStep(
                     title: 'What do you tend to put off?',
                     subtitle: "Mom's starting with these.",
-                    options: _procrastinationOptions,
+                    options: procrastinationOptions,
                     selected: _procrastination,
                     onToggle: (o) => setState(
                         () => _procrastination.contains(o) ? _procrastination.remove(o) : _procrastination.add(o)),
@@ -389,31 +382,31 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   ),
                   _SingleSelectStep(
                     title: "What's your daily routine like?",
-                    options: _dailyRoutineOptions,
-                    subs: _dailyRoutineSubs,
+                    options: dailyRoutineOptions,
+                    subs: dailyRoutineSubs,
                     selected: _dailyRoutine,
                     onSelect: (o) => _selectThenAdvance(() => _dailyRoutine = o),
                   ),
                   _SingleSelectStep(
                     title: "What's your living situation?",
-                    options: _livingSituationOptions,
-                    subs: _livingSituationSubs,
+                    options: livingSituationOptions,
+                    subs: livingSituationSubs,
                     selected: _livingSituation,
                     onSelect: (o) => _selectThenAdvance(() => _livingSituation = o),
                   ),
                   _SingleSelectStep(
                     title: 'What motivates you best?',
                     subtitle: "This shapes how Mom talks to you.",
-                    options: _motivationStyleOptions,
-                    subs: _motivationStyleSubs,
+                    options: motivationStyleOptions,
+                    subs: motivationStyleSubs,
                     selected: _motivationStyle,
                     onSelect: (o) => _selectThenAdvance(() => _motivationStyle = o, delay: _withMomMessageDelay),
                     momBubble: _motivationStyle == null
                         ? null
-                        : _motivationStyleBubbles[_motivationStyleOptions.indexOf(_motivationStyle!)],
+                        : _motivationStyleBubbles[motivationStyleOptions.indexOf(_motivationStyle!)],
                     momExpression: _motivationStyle == null
                         ? null
-                        : _motivationStyleExpressions[_motivationStyleOptions.indexOf(_motivationStyle!)],
+                        : _motivationStyleExpressions[motivationStyleOptions.indexOf(_motivationStyle!)],
                   ),
                   _StressorStep(controller: _stressorController, onChanged: () => setState(() {})),
                   _FrequencyStep(

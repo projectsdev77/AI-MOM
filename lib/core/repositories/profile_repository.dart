@@ -37,6 +37,30 @@ class ProfileRepository {
     }).eq('id', userId);
   }
 
+  /// Unlike [saveOnboardingAnswers] (which only ever adds values, on the
+  /// one-time onboarding submit), this is a real edit: an explicit null
+  /// here clears that answer back to unset, same as leaving an
+  /// onboarding question unanswered in the first place.
+  Future<void> updateOnboardingExtras({
+    required String userId,
+    required List<String> goals,
+    required List<String> procrastinationAreas,
+    String? dailyRoutine,
+    String? livingSituation,
+    String? motivationStyle,
+    String? currentStressor,
+  }) {
+    return _client.from('profiles').update({
+      'goals': goals,
+      'procrastination_areas': procrastinationAreas,
+      'daily_routine': dailyRoutine,
+      'living_situation': livingSituation,
+      'motivation_style': motivationStyle,
+      'current_stressor':
+          currentStressor != null && currentStressor.trim().isNotEmpty ? currentStressor.trim() : null,
+    }).eq('id', userId);
+  }
+
   Future<Map<String, dynamic>> fetch(String userId) {
     return _client.from('profiles').select().eq('id', userId).single();
   }

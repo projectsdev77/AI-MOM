@@ -24,6 +24,7 @@ import '../../core/utils/password.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/mom_components.dart';
 import 'legal_screens.dart';
+import 'onboarding_answers_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -452,6 +453,12 @@ class SettingsScreen extends ConsumerWidget {
                 label: 'Check-in frequency',
                 value: checkInFrequency,
                 onTap: () => _pickCheckInFrequency(context, ref, checkInFrequency),
+              ),
+              _Row(
+                icon: LucideIcons.notebookPen,
+                label: 'Your answers',
+                onTap: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OnboardingAnswersScreen())),
               ),
             ]),
             const SizedBox(height: AppSpacing.momRowGap),
