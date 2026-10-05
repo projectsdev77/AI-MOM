@@ -15,16 +15,98 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
-const NUDGE_LINES = [
-  "Still a couple of things on your list today — I know you've got this.",
-  "Just checking in — anything on today's list you want to knock out now?",
-  'No pressure, just a nudge: today’s list is still waiting for you.',
-];
-
 interface ServiceAccount {
   project_id: string;
   client_email: string;
   private_key: string;
+}
+
+interface PendingTask {
+  title: string;
+  category: string;
+}
+
+interface NudgeCandidate {
+  user_id: string;
+  fcm_token: string;
+  name: string;
+  motivation_style: string | null;
+  procrastination_areas: string[] | null;
+  pending_tasks: PendingTask[];
+}
+
+// Mirrors lib/core/constants/onboarding_options.dart's procrastinationOptions
+// against the task category text the app actually stores (a built-in
+// TaskCategory's lowercase .name — see TasksRepository / add_task_sheet.dart).
+// Used to call out when a pending task is exactly the kind of thing this
+// person said, at onboarding, that they put off — the specific detail
+// that makes a nudge read as actually about them instead of a form letter.
+const PROCRASTINATION_CATEGORY: Record<string, string> = {
+  'Exercise': 'health',
+  'Chores': 'chores',
+  'Work deadlines': 'work',
+  'Sleeping on time': 'health',
+  'Spending less': 'money',
+};
+
+/// Quotes the first pending task by name — "today's list" in the
+/// abstract is what makes a nudge forgettable; naming the actual thing
+/// still open is what makes it land. Only ever falls back to the vague
+/// phrasing if pending_tasks somehow comes back empty (users_to_nudge
+/// already only returns people with at least one).
+function describeTasks(tasks: PendingTask[]): string {
+  if (tasks.length === 0) return "today's list";
+  const first = `"${tasks[0].title}"`;
+  const extra = tasks.length - 1;
+  if (extra <= 0) return first;
+  return `${first} and ${extra} other thing${extra === 1 ? '' : 's'}`;
+}
+
+function buildNudgeMessage(candidate: NudgeCandidate): string {
+  const tasks = candidate.pending_tasks ?? [];
+  const taskPhrase = describeTasks(tasks);
+
+  // A clean, high-confidence callout: the first pending task's category
+  // matches a category this person actually said they procrastinate on.
+  const procrastinationHit = (candidate.procrastination_areas ?? []).find(
+    (area) => PROCRASTINATION_CATEGORY[area] === tasks[0]?.category,
+  );
+
+  const toughLove = [
+    `${taskPhrase} isn't going to do itself. Go.`,
+    `Still staring at ${taskPhrase}? Today's the day — move.`,
+    `${taskPhrase}, today, not tomorrow. Don't make me ask twice.`,
+    procrastinationHit ? `${taskPhrase} — same thing you always put off. Not today.` : null,
+  ].filter((l): l is string => l != null);
+
+  const gentle = [
+    `No rush, but ${taskPhrase} is still waiting for you whenever you're ready.`,
+    `Just a little nudge — ${taskPhrase} is still on the list, that's all.`,
+    `Whenever it feels right today, ${taskPhrase} will be there for you.`,
+    procrastinationHit ? `I know ${taskPhrase} isn't your favorite. You've got this.` : null,
+  ].filter((l): l is string => l != null);
+
+  const mix = [
+    `${taskPhrase} is still open — a few minutes and it's done.`,
+    `Still got ${taskPhrase} on the list. Grab it before the day gets away from you.`,
+    `${taskPhrase} is waiting. You've got time today if you start now.`,
+  ];
+
+  const neutral = [
+    `${taskPhrase} is still on today's list.`,
+    `Checking in — ${taskPhrase} is still open.`,
+    `${taskPhrase} is waiting whenever you're free.`,
+  ];
+
+  const pool = candidate.motivation_style === 'Tough love, tell it straight'
+    ? toughLove
+    : candidate.motivation_style === 'Gentle encouragement'
+    ? gentle
+    : candidate.motivation_style === 'A mix of both'
+    ? mix
+    : neutral;
+
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
@@ -123,8 +205,8 @@ Deno.serve(async (req) => {
 
   let sent = 0;
   const nudgedIds: string[] = [];
-  for (const candidate of candidates as { user_id: string; fcm_token: string; name: string }[]) {
-    const line = NUDGE_LINES[Math.floor(Math.random() * NUDGE_LINES.length)];
+  for (const candidate of candidates as NudgeCandidate[]) {
+    const line = buildNudgeMessage(candidate);
     const ok = await sendPush(accessToken, serviceAccount.project_id, candidate.fcm_token, line);
     if (ok) {
       sent++;
