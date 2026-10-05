@@ -36,7 +36,17 @@ class PushService {
   static Future<void> init() async {
     if (!Env.isFirebaseConfigured) return;
     try {
-      await Firebase.initializeApp(options: _options);
+      // With android/app/google-services.json present, Android's native
+      // layer auto-initializes the default FirebaseApp before this Dart
+      // code even runs — calling initializeApp again then throws
+      // [core/duplicate-app]. Without that file (iOS, or Android before
+      // it's added), nothing has initialized it yet, so this still does
+      // it explicitly from the --dart-define config as before.
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(options: _options);
+      } else {
+        debugPrint('PushService.init: default Firebase app already initialized natively, reusing it');
+      }
 
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission(alert: true, badge: true, sound: true);
