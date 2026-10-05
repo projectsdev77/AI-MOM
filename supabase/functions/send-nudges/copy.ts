@@ -25,9 +25,11 @@ export type Intent =
   | 'task_count'
   | 'task_procrastinated'
   | 'water'
+  | 'water_unlogged'
   | 'sleep'
   | 'workout'
   | 'activity'
+  | 'activity_unlogged'
   | 'budget_near'
   | 'budget_over'
   | 'category_near'
@@ -130,6 +132,28 @@ const COPY: Record<Intent, Record<Tone, string[]>> = {
     ],
   },
 
+  // Nothing at all logged for water today ({goal} is their daily glasses
+  // goal). Separate from `water`, which is for partial progress.
+  water_unlogged: {
+    tough: [
+      `Not one glass of water logged today. Go drink one and log it.`,
+      `You haven't logged any water today. The goal is {goal}. Start with one.`,
+      `Zero water logged. Fix that.`,
+      `Either you haven't been drinking or you haven't been logging. Both need fixing.`,
+    ],
+    gentle: [
+      `You haven't logged any water today. A glass now would be a good start.`,
+      `No water logged yet today. Maybe grab a glass and tap it in?`,
+      `Have you had any water today? Nothing's logged yet.`,
+    ],
+    mix: [
+      `No water logged today. The goal is {goal} glasses, so start with one.`,
+      `Nothing logged for water yet. Grab a glass, then log it.`,
+      `Water's still at zero for today. Go fix that.`,
+      `Quick one: have you had water today? Nothing's logged yet.`,
+    ],
+  },
+
   // No sleep logged yet today.
   sleep: {
     tough: [
@@ -184,6 +208,26 @@ const COPY: Record<Intent, Record<Tone, string[]>> = {
       `{activity}: {have} of {goal} minutes so far.`,
       `{left} minutes of {activity} to reach today's goal.`,
       `Fit in some {activity} today? You're {left} minutes short.`,
+    ],
+  },
+
+  // Nothing logged for one of their own activities today. {goal} is that
+  // activity's daily minutes goal. Separate from `activity` (partial).
+  activity_unlogged: {
+    tough: [
+      `Nothing logged for {activity} today. {goal} minutes is the goal. Get to it.`,
+      `You haven't done any {activity} today. Or you didn't log it. Fix one of those.`,
+      `{activity}: zero minutes today. Go.`,
+    ],
+    gentle: [
+      `You haven't logged any {activity} today. Even ten minutes would be a start.`,
+      `Nothing logged for {activity} yet. Whenever you're ready.`,
+      `How's {activity} going today? Nothing's logged yet.`,
+    ],
+    mix: [
+      `No {activity} logged today. The goal is {goal} minutes.`,
+      `{activity} is still at zero today. Go log some.`,
+      `Did you get any {activity} in? Nothing's logged yet.`,
     ],
   },
 

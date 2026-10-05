@@ -179,15 +179,22 @@ function taskOptions(c: Candidate, name: string | undefined, rand: () => number)
 function healthOptions(h: HealthFacts, hour: number, rand: () => number): Option[] {
   const options: Option[] = [];
 
-  if (h.waterTarget != null && h.waterCount < h.waterTarget) {
-    options.push({
-      intent: 'water',
-      vars: { have: h.waterCount, goal: h.waterTarget, left: h.waterTarget - h.waterCount },
-      priority: 1,
-    });
+  // "You haven't logged any X today" (priority 2) is the more useful thing
+  // to say, so it outranks "you're partway there" (priority 1) whenever
+  // both are on the table.
+  if (h.waterTarget != null) {
+    if (h.waterCount === 0) {
+      options.push({ intent: 'water_unlogged', vars: { goal: h.waterTarget }, priority: 2 });
+    } else if (h.waterCount < h.waterTarget) {
+      options.push({
+        intent: 'water',
+        vars: { have: h.waterCount, goal: h.waterTarget, left: h.waterTarget - h.waterCount },
+        priority: 1,
+      });
+    }
   }
   if (h.sleepTargetHours != null && h.sleepHours == null && hour < SLEEP_REMINDER_BEFORE_HOUR) {
-    options.push({ intent: 'sleep', vars: {}, priority: 1 });
+    options.push({ intent: 'sleep', vars: {}, priority: 2 });
   }
   if (h.workoutTargetMinutes != null && h.workoutMinutes < h.workoutTargetMinutes) {
     options.push({
@@ -200,11 +207,21 @@ function healthOptions(h: HealthFacts, hour: number, rand: () => number): Option
       priority: 1,
     });
   }
-  const unfinished = h.activities.filter((a) => a.minutes < a.targetMinutes);
-  if (unfinished.length > 0) {
-    // One entry however many activities there are, so having many doesn't
-    // make activity nudges crowd out water and workout.
-    const a = pick(unfinished, rand);
+
+  // At most one entry per kind however many activities there are, so
+  // having many doesn't make activity nudges crowd out water and workout.
+  const untouched = h.activities.filter((a) => a.minutes === 0);
+  if (untouched.length > 0) {
+    const a = pick(untouched, rand);
+    options.push({
+      intent: 'activity_unlogged',
+      vars: { activity: shorten(a.title), goal: a.targetMinutes },
+      priority: 2,
+    });
+  }
+  const partway = h.activities.filter((a) => a.minutes > 0 && a.minutes < a.targetMinutes);
+  if (partway.length > 0) {
+    const a = pick(partway, rand);
     options.push({
       intent: 'activity',
       vars: { activity: shorten(a.title), have: a.minutes, goal: a.targetMinutes, left: a.targetMinutes - a.minutes },
