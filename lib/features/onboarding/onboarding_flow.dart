@@ -277,17 +277,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   /// Used by every auto-advance single-select step (daily routine, living
   /// situation, motivation style, check-in frequency): records the pick,
-  /// then gives a beat for Mom's reaction — where that step has one — to
-  /// actually be seen before moving on, instead of jumping to the next
+  /// then gives a beat before moving on, instead of jumping to the next
   /// step in the same frame as the tap. Guards against advancing from the
   /// wrong step if the person backs out during that pause.
-  void _selectThenAdvance(VoidCallback applySelection) {
+  ///
+  /// [delay] should stay the short default for a step with no Mom
+  /// reaction to show, and use [_withMomMessageDelay] for one that
+  /// renders a MomMessageCard the person actually needs time to read.
+  void _selectThenAdvance(VoidCallback applySelection, {Duration delay = const Duration(milliseconds: 700)}) {
     setState(applySelection);
     final stepAtSelection = _step;
-    Future.delayed(const Duration(milliseconds: 1800), () {
+    Future.delayed(delay, () {
       if (mounted && _step == stepAtSelection) _next();
     });
   }
+
+  /// Long enough to actually read Mom's reaction bubble before the page
+  /// auto-advances out from under it.
+  static const _withMomMessageDelay = Duration(milliseconds: 1800);
 
   bool get _canContinue => switch (_step) {
         0 => _hasPickedAvatar,
@@ -383,7 +390,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     options: _motivationStyleOptions,
                     subs: _motivationStyleSubs,
                     selected: _motivationStyle,
-                    onSelect: (o) => _selectThenAdvance(() => _motivationStyle = o),
+                    onSelect: (o) => _selectThenAdvance(() => _motivationStyle = o, delay: _withMomMessageDelay),
                     momBubble: _motivationStyle == null
                         ? null
                         : _motivationStyleBubbles[_motivationStyleOptions.indexOf(_motivationStyle!)],
@@ -394,7 +401,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   _StressorStep(controller: _stressorController, onChanged: () => setState(() {})),
                   _FrequencyStep(
                     selected: _frequency,
-                    onSelect: (f) => _selectThenAdvance(() => _frequency = f),
+                    onSelect: (f) => _selectThenAdvance(() => _frequency = f, delay: _withMomMessageDelay),
                   ),
                   _AuthStep(
                     emailController: _emailController,
@@ -720,7 +727,7 @@ class _NameStepState extends ConsumerState<_NameStep> {
       if (_showMessage) setState(() => _showMessage = false);
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 1000), () {
+    _debounce = Timer(const Duration(milliseconds: 900), () {
       if (mounted) setState(() => _showMessage = true);
     });
   }
