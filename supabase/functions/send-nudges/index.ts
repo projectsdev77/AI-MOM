@@ -1,10 +1,17 @@
 // Mom's proactive nudge: called hourly by pg_cron (see
 // migrations/0009_nudge_scheduling.sql and 0010_nudge_frequency.sql),
 // never by the app directly. Finds everyone due for a nudge
-// (users_to_nudge, in that second migration — it honors each user's
-// own check_in_frequency from onboarding), sends each a push via
-// Firebase Cloud Messaging's HTTP v1 API, and stamps
+// (users_to_nudge, latest in 0013_nudge_health_finance.sql — it honors
+// each user's own check_in_frequency from onboarding), sends each ONE
+// push via Firebase Cloud Messaging's HTTP v1 API, and stamps
 // profiles.last_nudged_at so they aren't nudged again too soon.
+//
+// What a nudge says is decided in three small files next to this one:
+//   topics.ts  which topic (tasks, health, finance) and which fact in it
+//   facts.ts   the batched reads of health and finance data
+//   copy.ts    the actual wording, in three tones
+// Tasks are for everyone; health and finance are Full-plan only, and
+// share the same single nudge rather than being separate ones.
 //
 // FCM v1 needs an OAuth2 access token minted from a Firebase service
 // account — there's no simple static server key anymore (Google
@@ -12,6 +19,9 @@
 // Crypto API rather than pulling in a Node-oriented auth library,
 // since Deno edge functions don't have one readily available.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { renderNudge, toneFor } from './copy.ts';
+import { loadFacts } from './facts.ts';
+import { type Candidate, chooseNudge, type Facts, localTime, type LocalTime, type Topic } from './topics.ts';
 
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
@@ -19,94 +29,6 @@ interface ServiceAccount {
   project_id: string;
   client_email: string;
   private_key: string;
-}
-
-interface PendingTask {
-  title: string;
-  category: string;
-}
-
-interface NudgeCandidate {
-  user_id: string;
-  fcm_token: string;
-  name: string;
-  motivation_style: string | null;
-  procrastination_areas: string[] | null;
-  pending_tasks: PendingTask[];
-}
-
-// Mirrors lib/core/constants/onboarding_options.dart's procrastinationOptions
-// against the task category text the app actually stores (a built-in
-// TaskCategory's lowercase .name — see TasksRepository / add_task_sheet.dart).
-// Used to call out when a pending task is exactly the kind of thing this
-// person said, at onboarding, that they put off — the specific detail
-// that makes a nudge read as actually about them instead of a form letter.
-const PROCRASTINATION_CATEGORY: Record<string, string> = {
-  'Exercise': 'health',
-  'Chores': 'chores',
-  'Work deadlines': 'work',
-  'Sleeping on time': 'health',
-  'Spending less': 'money',
-};
-
-/// Quotes the first pending task by name — "today's list" in the
-/// abstract is what makes a nudge forgettable; naming the actual thing
-/// still open is what makes it land. Only ever falls back to the vague
-/// phrasing if pending_tasks somehow comes back empty (users_to_nudge
-/// already only returns people with at least one).
-function describeTasks(tasks: PendingTask[]): string {
-  if (tasks.length === 0) return "today's list";
-  const first = `"${tasks[0].title}"`;
-  const extra = tasks.length - 1;
-  if (extra <= 0) return first;
-  return `${first} and ${extra} other thing${extra === 1 ? '' : 's'}`;
-}
-
-function buildNudgeMessage(candidate: NudgeCandidate): string {
-  const tasks = candidate.pending_tasks ?? [];
-  const taskPhrase = describeTasks(tasks);
-
-  // A clean, high-confidence callout: the first pending task's category
-  // matches a category this person actually said they procrastinate on.
-  const procrastinationHit = (candidate.procrastination_areas ?? []).find(
-    (area) => PROCRASTINATION_CATEGORY[area] === tasks[0]?.category,
-  );
-
-  const toughLove = [
-    `${taskPhrase} isn't going to do itself. Go.`,
-    `Still staring at ${taskPhrase}? Today's the day — move.`,
-    `${taskPhrase}, today, not tomorrow. Don't make me ask twice.`,
-    procrastinationHit ? `${taskPhrase} — same thing you always put off. Not today.` : null,
-  ].filter((l): l is string => l != null);
-
-  const gentle = [
-    `No rush, but ${taskPhrase} is still waiting for you whenever you're ready.`,
-    `Just a little nudge — ${taskPhrase} is still on the list, that's all.`,
-    `Whenever it feels right today, ${taskPhrase} will be there for you.`,
-    procrastinationHit ? `I know ${taskPhrase} isn't your favorite. You've got this.` : null,
-  ].filter((l): l is string => l != null);
-
-  const mix = [
-    `${taskPhrase} is still open — a few minutes and it's done.`,
-    `Still got ${taskPhrase} on the list. Grab it before the day gets away from you.`,
-    `${taskPhrase} is waiting. You've got time today if you start now.`,
-  ];
-
-  const neutral = [
-    `${taskPhrase} is still on today's list.`,
-    `Checking in — ${taskPhrase} is still open.`,
-    `${taskPhrase} is waiting whenever you're free.`,
-  ];
-
-  const pool = candidate.motivation_style === 'Tough love, tell it straight'
-    ? toughLove
-    : candidate.motivation_style === 'Gentle encouragement'
-    ? gentle
-    : candidate.motivation_style === 'A mix of both'
-    ? mix
-    : neutral;
-
-  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
@@ -203,22 +125,60 @@ Deno.serve(async (req) => {
 
   const accessToken = await getAccessToken(serviceAccount);
 
-  let sent = 0;
-  const nudgedIds: string[] = [];
-  for (const candidate of candidates as NudgeCandidate[]) {
-    const line = buildNudgeMessage(candidate);
-    const ok = await sendPush(accessToken, serviceAccount.project_id, candidate.fcm_token, line);
-    if (ok) {
-      sent++;
-      nudgedIds.push(candidate.user_id);
+  const now = new Date();
+  const people = candidates as Candidate[];
+  const localById = new Map<string, LocalTime>(people.map((c) => [c.user_id, localTime(now, c.timezone)]));
+
+  // Health and finance nudges are a Full-plan feature, so those facts are
+  // only ever read for paying users. If reading them fails, everyone still
+  // gets their task nudge rather than the whole run failing.
+  let facts = new Map<string, Facts>();
+  const paying = people.filter((c) => c.plan === 'full');
+  if (paying.length > 0) {
+    try {
+      facts = await loadFacts(supabase, paying.map((c) => ({ id: c.user_id, local: localById.get(c.user_id)! })));
+    } catch (e) {
+      console.error('Could not load health/finance facts, falling back to tasks only:', e);
     }
   }
 
-  if (nudgedIds.length > 0) {
-    await supabase.from('profiles').update({ last_nudged_at: new Date().toISOString() }).in('id', nudgedIds);
+  let sent = 0;
+  let skipped = 0;
+  const sentByTopic = new Map<Topic, string[]>();
+  for (const candidate of people) {
+    try {
+      const chosen = chooseNudge(candidate, facts.get(candidate.user_id), localById.get(candidate.user_id)!);
+      if (!chosen) {
+        // Nothing worth saying (e.g. a paying user with no open tasks and
+        // nothing off-track). Not stamped, so they stay eligible next run.
+        skipped++;
+        continue;
+      }
+      const line = renderNudge(chosen.intent, toneFor(candidate.motivation_style), chosen.vars);
+      const ok = await sendPush(accessToken, serviceAccount.project_id, candidate.fcm_token, line);
+      if (ok) {
+        sent++;
+        const ids = sentByTopic.get(chosen.topic) ?? [];
+        ids.push(candidate.user_id);
+        sentByTopic.set(chosen.topic, ids);
+      }
+    } catch (e) {
+      // One person's bad data shouldn't stop everyone else's nudge.
+      console.error(`Nudge failed for ${candidate.user_id}:`, e);
+    }
   }
 
-  return new Response(JSON.stringify({ sent, candidates: candidates.length }), {
+  // Remember which topic each person just got, so the next one is
+  // something different when there's something different to say.
+  for (const [topic, ids] of sentByTopic) {
+    await supabase
+      .from('profiles')
+      .update({ last_nudged_at: now.toISOString(), last_nudge_topic: topic })
+      .in('id', ids);
+  }
+
+  const byTopic = Object.fromEntries([...sentByTopic].map(([topic, ids]) => [topic, ids.length]));
+  return new Response(JSON.stringify({ sent, skipped, candidates: candidates.length, byTopic }), {
     headers: { 'Content-Type': 'application/json' },
   });
 });

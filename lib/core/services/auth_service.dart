@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -155,6 +156,23 @@ class AuthService {
       await PushService.registerToken((token) async {
         await _client.from('profiles').update({'fcm_token': token}).eq('id', userId);
       });
+      await _saveTimezone(userId);
+    }
+  }
+
+  /// Mom's nudges look at "today's" water, spending, and so on, and
+  /// today is the person's own date, not the database's UTC one — without
+  /// knowing their timezone an evening nudge in the Americas would be
+  /// checking tomorrow's empty day. Saved on every launch and sign-in so
+  /// it also follows someone who travels or moves. Never allowed to fail
+  /// a sign-in: the worst case is nudges falling back to UTC dates.
+  Future<void> _saveTimezone(String userId) async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    try {
+      final zone = await FlutterTimezone.getLocalTimezone();
+      await _client.from('profiles').update({'timezone': zone}).eq('id', userId);
+    } catch (e) {
+      debugPrint('AuthService._saveTimezone failed: $e');
     }
   }
 
