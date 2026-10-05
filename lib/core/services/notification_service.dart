@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
@@ -47,15 +47,21 @@ class NotificationService {
 
       if (Platform.isAndroid) {
         final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-        await android?.requestNotificationsPermission();
-        await android?.requestExactAlarmsPermission();
+        final notificationsGranted = await android?.requestNotificationsPermission();
+        final exactAlarmsGranted = await android?.requestExactAlarmsPermission();
+        debugPrint(
+          'NotificationService.init: notificationsGranted=$notificationsGranted exactAlarmsGranted=$exactAlarmsGranted',
+        );
       } else if (Platform.isIOS) {
         final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
         await ios?.requestPermissions(alert: true, badge: true, sound: true);
       }
       _ready = true;
-    } catch (_) {
+    } catch (e, st) {
       // Never let a notifications setup failure take anything else down.
+      // Logged so a broken reminder pipeline is diagnosable instead of
+      // just silently never scheduling.
+      debugPrint('NotificationService.init failed: $e\n$st');
     }
   }
 
@@ -103,9 +109,13 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );
-    } catch (_) {
+      debugPrint('NotificationService.scheduleTaskReminder: scheduled for $scheduled (taskId=$taskId)');
+    } catch (e, st) {
       // A reminder that fails to schedule should never take the task
-      // save itself down with it.
+      // save itself down with it. Logged so a denied exact-alarm
+      // permission (the usual cause) is visible instead of the
+      // reminder just silently never firing.
+      debugPrint('NotificationService.scheduleTaskReminder failed: $e\n$st');
     }
   }
 
