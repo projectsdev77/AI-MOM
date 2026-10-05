@@ -50,6 +50,22 @@ class AuthService {
     return true;
   }
 
+  /// Confirms a new account with the code from its sign-up email, and
+  /// signs the person in. Used when the project's "Confirm email" setting
+  /// is on, where [signUpWithEmail] returns `false` and no session exists
+  /// until this succeeds, so nobody gets in with an address they don't own.
+  Future<void> verifyEmailCode({required String email, required String code}) async {
+    await _client.auth.verifyOTP(email: email, token: code, type: OtpType.signup);
+    await _afterSignIn();
+  }
+
+  /// Sends the sign-up code again. Supabase only allows one email a minute
+  /// per address, so a too-quick second request is refused with a rate-limit
+  /// error that [friendlyAuthError] words for people.
+  Future<void> resendEmailCode(String email) async {
+    await _client.auth.resend(type: OtpType.signup, email: email);
+  }
+
   Future<void> signInWithEmail({required String email, required String password}) async {
     await _client.auth.signInWithPassword(email: email, password: password);
     await _afterSignIn();

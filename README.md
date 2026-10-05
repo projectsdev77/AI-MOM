@@ -35,6 +35,33 @@ supabase link --project-ref your-project-ref
 supabase functions deploy mom-chat delete-account revenuecat-webhook send-nudges
 ```
 
+### Email verification (required for production)
+
+Signing up with email and password asks for a 6-digit code before the
+account is created. The app side is built; it switches on from these
+Supabase dashboard settings (they are not in any migration):
+
+1. **Authentication → Sign In / Providers → Email**: turn **Confirm email**
+   on. While it is off, sign-up logs in immediately with no code.
+2. **Authentication → Email Templates → Confirm signup**: the email must
+   contain the code, so put `{{ .Token }}` in the body, for example:
+   ```html
+   <h2>Confirm your email</h2>
+   <p>Your AI Mom code is:</p>
+   <h1>{{ .Token }}</h1>
+   <p>It expires in 1 hour. If you didn't sign up, ignore this email.</p>
+   ```
+   Leave out `{{ .ConfirmationURL }}`: tapping a link would confirm the
+   account but not return to the app with the onboarding answers.
+3. **Authentication → Emails → SMTP Settings**: set up a real SMTP provider
+   (Resend, SendGrid, Postmark, etc.). Supabase's built-in email sender is
+   for testing only and allows just a few emails an hour, so real sign-ups
+   would fail with "email rate limit exceeded".
+
+Supabase allows one email per address per minute, so the app's "Resend
+code" button waits 60 seconds. Google sign-in needs none of this: Google
+has already verified the address.
+
 ## Not implemented yet
 
 - **Stripe** — not used. Apple/Google require in-app purchases to go

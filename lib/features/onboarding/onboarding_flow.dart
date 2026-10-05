@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -152,10 +153,82 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       // The router's auth-state listener takes it from here and redirects
       // to /dashboard once the session is set.
     } catch (e) {
+      if (_isLoginMode && e.toString().toLowerCase().contains('email not confirmed')) {
+        // They signed up but never entered the code. Send a fresh one and
+        // show the code box, rather than a message with nowhere to go.
+        try {
+          await auth.resendEmailCode(email);
+          if (mounted) setState(() => _awaitingEmailConfirmation = true);
+        } catch (resendError) {
+          if (mounted) setState(() => _error = friendlyAuthError(resendError));
+        }
+        return;
+      }
       if (mounted) setState(() => _error = friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Second half of sign-up when the project requires confirming the email:
+  /// [_submit] created the account but there's no session yet, so everything
+  /// typed during onboarding is still sitting in this screen. Entering the
+  /// code signs them in, and only then can the answers be saved, exactly as
+  /// [_submit] does when no confirmation is needed.
+  Future<void> _verifyEmailCode(String code) async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    // Captured before the await for the same reason as in _submit: the
+    // moment the session appears the router can redirect away from here.
+    final container = ProviderScope.containerOf(context, listen: false);
+    final auth = ref.read(authServiceProvider);
+    final profileRepository = ref.read(profileRepositoryProvider);
+    final momAvatarStyle = ref.read(momAvatarStyleProvider).name;
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final currentStressor = _stressorController.text;
+    final wasLogin = _isLoginMode;
+    try {
+      await auth.verifyEmailCode(email: email, code: code);
+      // Someone logging in to an account they never confirmed has nothing
+      // to save: this pass's answers are blank, and must not overwrite.
+      if (!wasLogin) {
+        await _saveOnboardingAnswers(
+          container: container,
+          auth: auth,
+          profileRepository: profileRepository,
+          momAvatarStyle: momAvatarStyle,
+          name: name,
+          currentStressor: currentStressor,
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyAuthError(e));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _resendEmailCode() async {
+    setState(() => _error = null);
+    try {
+      await ref.read(authServiceProvider).resendEmailCode(_emailController.text.trim());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('New code sent. Check your email.')));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyAuthError(e));
+    }
+  }
+
+  /// "Wrong email?" on the code screen: back to the form with what they typed.
+  void _editEmail() {
+    setState(() {
+      _awaitingEmailConfirmation = false;
+      _error = null;
+    });
   }
 
   Future<void> _forgotPassword() async {
@@ -425,6 +498,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     onGoogleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithGoogle),
                     onAppleTap: () => _socialSignIn(ref.read(authServiceProvider).signInWithApple),
                     onSwitchToLogin: _startLogin,
+                    onVerifyCode: _verifyEmailCode,
+                    onResendCode: _resendEmailCode,
+                    onEditEmail: _editEmail,
                     onPreviewTap: () {
                       previewModeEnabled = true;
                       context.go('/dashboard');
@@ -1015,6 +1091,9 @@ class _AuthStep extends StatefulWidget {
     required this.onGoogleTap,
     required this.onAppleTap,
     required this.onSwitchToLogin,
+    required this.onVerifyCode,
+    required this.onResendCode,
+    required this.onEditEmail,
     required this.onPreviewTap,
   });
 
@@ -1029,6 +1108,9 @@ class _AuthStep extends StatefulWidget {
   final VoidCallback onGoogleTap;
   final VoidCallback onAppleTap;
   final VoidCallback onSwitchToLogin;
+  final ValueChanged<String> onVerifyCode;
+  final VoidCallback onResendCode;
+  final VoidCallback onEditEmail;
   final VoidCallback onPreviewTap;
 
   @override
@@ -1037,6 +1119,43 @@ class _AuthStep extends StatefulWidget {
 
 class _AuthStepState extends State<_AuthStep> {
   bool _obscurePassword = true;
+
+  // Supabase refuses a second email to the same address within a minute, so
+  // "Resend code" waits that long (counting from the email already sent).
+  static const _resendWaitSeconds = 60;
+  final _codeController = TextEditingController();
+  Timer? _resendTimer;
+  int _resendSecondsLeft = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.awaitingEmailConfirmation) _beginResendWait();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AuthStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.awaitingEmailConfirmation && !oldWidget.awaitingEmailConfirmation) {
+      // The sign-up email has just gone out.
+      _codeController.clear();
+      _beginResendWait();
+    }
+  }
+
+  void _beginResendWait() {
+    _resendTimer?.cancel();
+    _resendSecondsLeft = _resendWaitSeconds;
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _resendSecondsLeft -= 1);
+      if (_resendSecondsLeft <= 0) timer.cancel();
+    });
+  }
+
   late final _termsRecognizer = TapGestureRecognizer()
     ..onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsOfServiceScreen()));
   late final _privacyRecognizer = TapGestureRecognizer()
@@ -1044,6 +1163,8 @@ class _AuthStepState extends State<_AuthStep> {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
+    _codeController.dispose();
     _termsRecognizer.dispose();
     _privacyRecognizer.dispose();
     super.dispose();
@@ -1054,18 +1175,73 @@ class _AuthStepState extends State<_AuthStep> {
     final mom = context.mom;
 
     if (widget.awaitingEmailConfirmation) {
+      final codeReady = _codeController.text.length >= 6;
+      final canResend = _resendSecondsLeft <= 0 && !widget.submitting;
       return _StepScaffold(
         title: 'Check your email',
-        subtitle: "We sent a confirmation link to ${widget.emailController.text.trim()}.",
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        subtitle: 'We sent a code to ${widget.emailController.text.trim()}. Enter it to confirm your account.',
+        child: ListView(
           children: [
-            Text(
-              "Tap that link to confirm your account, then come back here and log in — Mom will be waiting.",
-              style: MomText.body(mom.inkSoft),
+            TextField(
+              controller: _codeController,
+              onChanged: (_) => setState(() {}),
+              autofocus: true,
+              enabled: !widget.submitting,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              maxLength: 10,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: MomText.screenTitle(mom.ink).copyWith(letterSpacing: 8),
+              decoration: InputDecoration(
+                counterText: '',
+                filled: true,
+                fillColor: mom.surface,
+                hintText: '000000',
+                hintStyle: MomText.screenTitle(mom.placeholderText).copyWith(letterSpacing: 8),
+                contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.momGutter, vertical: AppSpacing.md),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
+                  borderSide: BorderSide(color: mom.espresso, width: 1.5),
+                ),
+              ),
             ),
+            if (widget.error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(widget.error!, textAlign: TextAlign.center, style: MomText.meta(mom.danger)),
+            ],
             const SizedBox(height: AppSpacing.lg),
-            PrimaryButton(label: "I've confirmed — log in", onPressed: widget.onSwitchToLogin),
+            PrimaryButton(
+              label: widget.submitting ? 'Verifying…' : 'Verify and continue',
+              onPressed: (codeReady && !widget.submitting) ? () => widget.onVerifyCode(_codeController.text.trim()) : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Center(
+              child: TextButton(
+                onPressed: canResend
+                    ? () {
+                        setState(_beginResendWait);
+                        widget.onResendCode();
+                      }
+                    : null,
+                child: Text(_resendSecondsLeft > 0 ? 'Resend code in ${_resendSecondsLeft}s' : 'Resend code'),
+              ),
+            ),
+            Center(child: Text("Can't find it? Check your spam folder.", style: MomText.meta(mom.inkMuted))),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              alignment: WrapAlignment.center,
+              children: [
+                TextButton(onPressed: widget.submitting ? null : widget.onEditEmail, child: const Text('Wrong email?')),
+                TextButton(
+                  onPressed: widget.submitting ? null : widget.onSwitchToLogin,
+                  child: const Text('Already have an account? Log in'),
+                ),
+              ],
+            ),
           ],
         ),
       );
@@ -1157,17 +1333,9 @@ class _AuthStepState extends State<_AuthStep> {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          MomSecondaryButton(
-            icon: LucideIcons.globe,
-            label: 'Continue with Google',
-            onPressed: widget.submitting ? null : widget.onGoogleTap,
-          ),
+          MomSocialButton.google(onPressed: widget.submitting ? null : widget.onGoogleTap),
           const SizedBox(height: AppSpacing.sm),
-          MomSecondaryButton(
-            icon: LucideIcons.apple,
-            label: 'Continue with Apple',
-            onPressed: widget.submitting ? null : widget.onAppleTap,
-          ),
+          MomSocialButton.apple(onPressed: widget.submitting ? null : widget.onAppleTap),
           if (!widget.isLoginMode) ...[
             const SizedBox(height: AppSpacing.lg),
             RichText(

@@ -48,8 +48,13 @@ String friendlyAuthError(Object error) {
   if (message.contains('email not confirmed')) {
     return 'Please confirm your email before logging in.';
   }
-  if (message.contains('token has expired') || message.contains('token is invalid')) {
-    return 'That reset link has expired — request a new one.';
+  // Supabase uses the same wording for a wrong or expired sign-up code and
+  // for an expired password-reset link, so this has to read right for both.
+  if (message.contains('token has expired') || message.contains('token is invalid') || message.contains('otp_expired')) {
+    return "That code or link has expired or isn't valid — request a new one.";
+  }
+  if (message.contains('over_email_send_rate_limit') || message.contains('only request this after')) {
+    return 'Please wait a minute before asking for another email.';
   }
   if (message.contains('password') && (message.contains('short') || message.contains('at least'))) {
     return 'Password needs to be at least 8 characters.';
