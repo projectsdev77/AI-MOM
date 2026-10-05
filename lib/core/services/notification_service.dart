@@ -107,12 +107,7 @@ class NotificationService {
           iOS: DarwinNotificationDetails(),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        // TEMPORARILY removed matchDateTimeComponents for diagnosis — on a
-        // clean install, the alarm fires (confirmed via adb dumpsys alarm
-        // wakeup count) but no notification channel is ever created and
-        // nothing displays, with matchDateTimeComponents: DateTimeComponents.time
-        // set. Testing whether the daily-repeat matching path specifically
-        // is what's broken, vs. zonedSchedule itself.
+        matchDateTimeComponents: DateTimeComponents.time,
       );
       debugPrint('NotificationService.scheduleTaskReminder: scheduled for $scheduled (taskId=$taskId)');
     } catch (e, st) {
