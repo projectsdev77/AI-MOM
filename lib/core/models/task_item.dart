@@ -121,4 +121,35 @@ class TaskItem {
       );
 }
 
+/// `HH:mm` or `HH:mm:ss` (as Postgres's `time` comes back) as minutes since
+/// midnight, or null if it isn't one.
+int? _minutesOfDay(String? raw) {
+  if (raw == null) return null;
+  final parts = raw.split(':');
+  if (parts.length < 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return hour * 60 + minute;
+}
+
+/// The order a day's task list is shown in: tasks that have a reminder time
+/// come first with the earliest at the top, then the tasks without one in
+/// the order they were made. Tasks at the same time keep creation order
+/// (and the id settles anything still tied), so the list never shuffles.
+int compareTasksForDisplay(TaskItem a, TaskItem b) {
+  final aMinutes = _minutesOfDay(a.dueTime);
+  final bMinutes = _minutesOfDay(b.dueTime);
+  if (aMinutes != null && bMinutes != null) {
+    final byTime = aMinutes.compareTo(bMinutes);
+    if (byTime != 0) return byTime;
+  } else if (aMinutes != null) {
+    return -1;
+  } else if (bMinutes != null) {
+    return 1;
+  }
+  final byCreated = a.createdAt.compareTo(b.createdAt);
+  return byCreated != 0 ? byCreated : a.id.compareTo(b.id);
+}
+
 bool _isSameDate(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;

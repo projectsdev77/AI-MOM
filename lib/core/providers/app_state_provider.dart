@@ -164,7 +164,9 @@ final selectedTaskDayProvider = StateProvider<DateTime>((ref) => _dateOnly(DateT
 /// specific day rather than [tasksProvider]'s always-today value.
 final tasksForSelectedDayProvider = FutureProvider.autoDispose<List<TaskItem>>((ref) async {
   final day = ref.watch(selectedTaskDayProvider);
-  final matching = ref.watch(tasksProvider).where((t) => t.appliesToDay(day)).toList();
+  // Reminder-time order, earliest first, so what's coming up soonest is on top.
+  final matching = ref.watch(tasksProvider).where((t) => t.appliesToDay(day)).toList()
+    ..sort(compareTasksForDisplay);
 
   if (_dateOnly(DateTime.now()) == day) return matching;
 
