@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/task_item.dart';
 import '../services/notification_service.dart';
 import '../theme/mom_mood.dart';
+import '../utils/mom_messages.dart';
 import '../widgets/mom_avatar.dart';
 import 'service_providers.dart';
 
@@ -266,14 +267,12 @@ final momMessageProvider = Provider<String>((ref) {
       break;
   }
   final mood = ref.watch(momMoodProvider);
-  return switch (mood) {
-    MomMood.proud =>
-      "Look at you go. I might actually brag about you to your aunt.",
-    MomMood.neutral =>
-      "Not bad so far today. Keep going and I'll stop hovering over that to-do list.",
-    MomMood.disappointed =>
-      "A few things are slipping. I'm not mad — just a little disappointed.",
-    MomMood.veryDisappointed =>
-      "We need to talk. Open your task list before I start calling twice a day.",
-  };
+  final today = DateTime.now();
+  final todayTasks = ref.watch(tasksProvider).where((t) => t.appliesToDay(today));
+  return momTaskMessage(
+    mood: mood,
+    done: todayTasks.where((t) => t.done).length,
+    total: todayTasks.length,
+    day: today,
+  );
 });

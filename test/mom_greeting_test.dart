@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_mom/core/models/task_item.dart';
 import 'package:ai_mom/core/providers/app_state_provider.dart';
 import 'package:ai_mom/core/providers/service_providers.dart';
+import 'package:ai_mom/core/theme/mom_mood.dart';
+import 'package:ai_mom/core/utils/mom_messages.dart';
 
 /// A task list that is simply handed over, with no server behind it.
 class _FakeTasks extends TasksNotifier {
@@ -93,13 +95,13 @@ void main() {
     expect(c.read(momMessageProvider), isNot(startsWith('Welcome')));
   });
 
-  test('with tasks for today the usual score-based lines are unchanged', () async {
+  test('with tasks for today Mom uses her score-based lines for that mood', () async {
     final done = await _setup(tasks: [_task(done: true), _task(recurrence: RecurrenceType.weekly, done: true)]);
     expect(done.read(momGreetingProvider), MomGreeting.normal);
-    expect(done.read(momMessageProvider), startsWith('Look at you go'));
+    expect(momMessagesFor(MomMood.proud, done: 2, total: 2), contains(done.read(momMessageProvider)));
 
     final none = await _setup(tasks: [_task(), _task(recurrence: RecurrenceType.weekly)]);
-    expect(none.read(momMessageProvider), startsWith('We need to talk'));
+    expect(momMessagesFor(MomMood.veryDisappointed, done: 0, total: 2), contains(none.read(momMessageProvider)));
   });
 
   test('empty-list moments use their own heading and face, normal ones keep the mood', () {
