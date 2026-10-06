@@ -29,9 +29,9 @@ class ProfileRepository {
       // onboarding's name step needs writing here too, for every sign-in
       // method, or it's silently lost for social sign-in.
       if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
-      if (dailyRoutine != null) 'daily_routine': dailyRoutine,
-      if (livingSituation != null) 'living_situation': livingSituation,
-      if (motivationStyle != null) 'motivation_style': motivationStyle,
+      'daily_routine': ?dailyRoutine,
+      'living_situation': ?livingSituation,
+      'motivation_style': ?motivationStyle,
       if (currentStressor != null && currentStressor.trim().isNotEmpty)
         'current_stressor': currentStressor.trim(),
     }).eq('id', userId);

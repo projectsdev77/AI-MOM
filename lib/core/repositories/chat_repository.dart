@@ -75,7 +75,7 @@ class ChatRepository {
     try {
       final response = await _client.functions.invoke(
         'mom-chat',
-        body: {if (sessionId != null) 'sessionId': sessionId, 'message': message},
+        body: {'sessionId': ?sessionId, 'message': message},
       );
       final data = response.data as Map<String, dynamic>;
       return (

@@ -112,8 +112,8 @@ class TasksRepository {
           'title': title,
           'category': category,
           'recurrence': recurrence.name,
-          if (dueTime != null) 'due_time': dueTime,
-          if (createdAt != null) 'created_at': createdAt.toIso8601String(),
+          'due_time': ?dueTime,
+          'created_at': ?createdAt?.toIso8601String(),
         })
         .select('id')
         .single();

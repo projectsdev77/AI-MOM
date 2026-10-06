@@ -98,9 +98,9 @@ class HealthRepository {
     return _client.from('health_logs').upsert({
       'user_id': userId,
       'log_date': _today(),
-      if (waterCount != null) 'water_count': waterCount,
-      if (sleepHours != null) 'sleep_hours': sleepHours,
-      if (workoutMinutes != null) 'workout_minutes': workoutMinutes,
+      'water_count': ?waterCount,
+      'sleep_hours': ?sleepHours,
+      'workout_minutes': ?workoutMinutes,
     }, onConflict: 'user_id,log_date');
   }
 
