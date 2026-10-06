@@ -74,7 +74,7 @@ bool get _revenueCatConfiguredForPlatform {
 
 /// RevenueCat's live entitlement stream — empty (never emits) until a
 /// real RevenueCat project is configured, so local dev without keys
-/// falls through to [debugPlanOverrideProvider] below instead of hanging.
+/// falls through to the cached plan instead of hanging.
 /// purchases_flutter exposes updates via a listener callback rather than
 /// a Stream, so this adapts it to one.
 final customerInfoProvider = StreamProvider<CustomerInfo?>((ref) {
@@ -117,16 +117,8 @@ final cachedPlanProvider = Provider<AppPlan?>((ref) {
   return AppPlan.values.byName(planName);
 });
 
-/// Manual plan override for local development/demoing without a
-/// RevenueCat project configured — see the Settings screen's debug
-/// toggle. `null` means "untouched", so it doesn't shadow the real
-/// cached plan until someone actually flips the switch; a real
-/// RevenueCat entitlement always wins over it either way.
-final debugPlanOverrideProvider = StateProvider<AppPlan?>((ref) => null);
-
 final planProvider = Provider<AppPlan>((ref) {
   return ref.watch(entitlementPlanProvider) ??
-      ref.watch(debugPlanOverrideProvider) ??
       ref.watch(cachedPlanProvider) ??
       AppPlan.basic;
 });

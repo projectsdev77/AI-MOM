@@ -502,7 +502,6 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
             ]),
-            const _DebugPlanToggle(),
             const SizedBox(height: AppSpacing.lg),
             const _VersionLine(),
           ],
@@ -775,41 +774,6 @@ class SubscriptionGroupState extends ConsumerState<SubscriptionGroup> {
         onTap: _manage,
       ),
     ]);
-  }
-}
-
-/// Dev-only control to preview Basic vs Full gating — not a shipped
-/// feature, remove once RevenueCat entitlements drive [planProvider].
-class _DebugPlanToggle extends ConsumerWidget {
-  const _DebugPlanToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mom = context.mom;
-    final plan = ref.watch(planProvider);
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.momRowGap),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.momRadiusCard),
-        border: Border.all(color: mom.fieldBorder, style: BorderStyle.solid),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text('Debug: preview plan', style: MomText.rowLabel(mom.inkSoft))),
-              MomToggle(
-                value: plan.isFull,
-                onChanged: (v) => ref.read(debugPlanOverrideProvider.notifier).state = v ? AppPlan.full : AppPlan.basic,
-              ),
-            ],
-          ),
-          Text('Shows Full Mom without buying', style: MomText.meta(mom.inkMuted, size: 11.5)),
-        ],
-      ),
-    );
   }
 }
 

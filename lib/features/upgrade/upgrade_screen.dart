@@ -266,7 +266,7 @@ class _PlansViewState extends ConsumerState<_PlansView> {
               const SizedBox(height: 6),
               Text(
                 isMock
-                    ? "Pricing goes live once this app is connected to the App Store and Play Store — here's a preview of how it'll look."
+                    ? "Real prices aren't available right now, so here's a preview of the plans."
                     : 'Pick the plan that works for you.',
                 style: MomText.body(mom.inkSoft),
               ),
@@ -331,8 +331,8 @@ class _PlansViewState extends ConsumerState<_PlansView> {
                 MomMessageCard(
                   avatarStyle: momAvatar,
                   expression: MomExpression.notes,
-                  eyebrow: 'Behind the scenes',
-                  message: 'For now, use the "Debug: preview plan" switch in Settings to try out what Full Mom looks like.',
+                  eyebrow: 'Hang on',
+                  message: "I can't reach the store right now, so I can't show real prices. Try again in a little while.",
                 ),
               ],
               if (widget.error != null) ...[
