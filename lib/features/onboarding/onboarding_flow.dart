@@ -48,7 +48,6 @@ const _frequencySubs = [
   'Morning plan, evening review',
   'For the deadline weeks',
   'You asked for this',
-  'Testing only — needs cron tightened too',
 ];
 
 const _avatarTraits = [
