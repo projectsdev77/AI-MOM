@@ -44,6 +44,7 @@ class TasksScreen extends ConsumerWidget {
     final plan = ref.watch(planProvider);
     final mood = ref.watch(momMoodProvider);
     final message = ref.watch(momMessageProvider);
+    final greeting = ref.watch(momGreetingProvider);
     final momAvatar = ref.watch(effectiveMomAvatarProvider);
     final dayTasks = dayTasksAsync.valueOrNull ?? const <TaskItem>[];
     final isToday = _isSameDay(selectedDay, DateTime.now());
@@ -92,7 +93,7 @@ class TasksScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.momSectionGap),
             const _TasksCalendarCard(),
             const SizedBox(height: AppSpacing.momSectionGap),
-            MomMessageCard(avatarStyle: momAvatar, expression: MomExpression.mad, eyebrow: 'Keeping score', message: message),
+            MomMessageCard(avatarStyle: momAvatar, expression: greeting.expression ?? MomExpression.mad, eyebrow: greeting.eyebrow ?? 'Keeping score', message: message),
             const SizedBox(height: AppSpacing.momSectionGap),
             Row(
               children: [

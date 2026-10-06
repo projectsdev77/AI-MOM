@@ -24,10 +24,17 @@ final effectiveMomAvatarProvider = Provider<MomAvatarStyle>((ref) {
   return ref.watch(momAvatarStyleProvider);
 });
 
+/// False until the task list has come back from the server at least once, so
+/// "you have no tasks" is never shown just because the list hasn't loaded yet.
+final tasksLoadedProvider = StateProvider<bool>((ref) => false);
+
 class TasksNotifier extends Notifier<List<TaskItem>> {
   @override
   List<TaskItem> build() {
-    Future.microtask(refresh);
+    Future.microtask(() {
+      ref.read(tasksLoadedProvider.notifier).state = false;
+      return refresh();
+    });
     return const [];
   }
 
@@ -35,6 +42,7 @@ class TasksNotifier extends Notifier<List<TaskItem>> {
     final userId = ref.read(authServiceProvider).currentUser?.id;
     if (userId == null) return;
     state = await ref.read(tasksRepositoryProvider).fetchTasks(userId);
+    ref.read(tasksLoadedProvider.notifier).state = true;
     // Re-registers each task's reminder every refresh — cheap (just
     // replaces a pending OS alarm) and keeps reminders correct after
     // a reinstall or a fresh login on a new device, where nothing
@@ -194,7 +202,63 @@ final momMoodProvider = Provider<MomMood>((ref) {
   return MomMood.veryDisappointed;
 });
 
+/// What Mom has to say right now, before the score comes into it: a brand-new
+/// account, an empty list, or a day with nothing on it each get their own line
+/// instead of the score-based one (an empty list scores 0 and would otherwise
+/// read as "not bad so far").
+enum MomGreeting { loading, welcome, noTasks, nothingToday, normal }
+
+extension MomGreetingX on MomGreeting {
+  /// Heading over the message. `null` means keep the usual mood label.
+  String? get eyebrow => switch (this) {
+        MomGreeting.welcome => 'Welcome',
+        MomGreeting.noTasks => 'Getting started',
+        MomGreeting.nothingToday => 'Clear day',
+        MomGreeting.loading || MomGreeting.normal => null,
+      };
+
+  /// Mom's face for these moments. `null` means keep the mood's own.
+  MomExpression? get expression => switch (this) {
+        MomGreeting.welcome => MomExpression.happy,
+        MomGreeting.noTasks || MomGreeting.nothingToday || MomGreeting.loading => MomExpression.normal,
+        MomGreeting.normal => null,
+      };
+}
+
+/// How long after signing up Mom still says welcome (while the list is empty).
+const _welcomeWindow = Duration(days: 1);
+
+final momGreetingProvider = Provider<MomGreeting>((ref) {
+  final tasks = ref.watch(tasksProvider);
+  final loaded = ref.watch(tasksLoadedProvider);
+  final profileAsync = ref.watch(profileProvider);
+  if (!loaded || (profileAsync.isLoading && !profileAsync.hasValue)) return MomGreeting.loading;
+
+  if (tasks.isEmpty) {
+    final createdAt = DateTime.tryParse('${profileAsync.valueOrNull?['created_at'] ?? ''}');
+    final isNew = createdAt != null && DateTime.now().difference(createdAt) < _welcomeWindow;
+    return isNew ? MomGreeting.welcome : MomGreeting.noTasks;
+  }
+  if (!tasks.any((t) => t.appliesToDay(DateTime.now()))) return MomGreeting.nothingToday;
+  return MomGreeting.normal;
+});
+
 final momMessageProvider = Provider<String>((ref) {
+  switch (ref.watch(momGreetingProvider)) {
+    case MomGreeting.loading:
+      return 'Let me take a look at your list…';
+    case MomGreeting.welcome:
+      final name = (ref.watch(profileProvider).valueOrNull?['name'] as String?)?.trim() ?? '';
+      return name.isEmpty
+          ? "Welcome! I'm so glad you're here. Add your first task and let's get you started."
+          : "Welcome, $name! I'm so glad you're here. Add your first task and let's get you started.";
+    case MomGreeting.noTasks:
+      return "You haven't added any tasks yet. Add one and I'll start keeping an eye on you.";
+    case MomGreeting.nothingToday:
+      return "Nothing on your list for today. Enjoy it — or add something, so I have something to ask about.";
+    case MomGreeting.normal:
+      break;
+  }
   final mood = ref.watch(momMoodProvider);
   return switch (mood) {
     MomMood.proud =>

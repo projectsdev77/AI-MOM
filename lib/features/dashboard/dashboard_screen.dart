@@ -57,6 +57,7 @@ class DashboardScreen extends ConsumerWidget {
     final isToday = _isSameDay(selectedDay, DateTime.now());
     final mood = ref.watch(momMoodProvider);
     final message = ref.watch(momMessageProvider);
+    final greeting = ref.watch(momGreetingProvider);
     final momAvatar = ref.watch(effectiveMomAvatarProvider);
     final plan = ref.watch(planProvider);
     final expensesAsync = ref.watch(expensesThisMonthProvider);
@@ -132,7 +133,7 @@ class DashboardScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.momSectionGap),
-            MomMessageCard(avatarStyle: momAvatar, expression: mood.expression, eyebrow: mood.label, message: message),
+            MomMessageCard(avatarStyle: momAvatar, expression: greeting.expression ?? mood.expression, eyebrow: greeting.eyebrow ?? mood.label, message: message),
             const SizedBox(height: AppSpacing.momSectionGap),
             const _WeekStripCard(),
             const SizedBox(height: AppSpacing.momSectionGap),
