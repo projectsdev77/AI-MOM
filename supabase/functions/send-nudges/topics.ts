@@ -72,6 +72,7 @@ export interface Facts {
 export interface LocalTime {
   date: string; // YYYY-MM-DD in the person's own timezone
   hour: number; // 0 to 23 in the person's own timezone
+  known: boolean; // false when their timezone is missing/unrecognised and UTC was used instead
   monthStart: string; // YYYY-MM-01 in the person's own timezone
   daysLeftInMonth: number;
 }
@@ -159,7 +160,8 @@ function profileTags(c: Candidate, local: LocalTime): Set<Tag> {
   if (living) tags.add(living);
   if (c.has_stressor) tags.add('stressor');
   // From 7am: an early riser's lines shouldn't fire at 5am. This only
-  // gates which lines are eligible; it isn't a quiet-hours rule.
+  // gates which lines are eligible; the night-time silence itself is
+  // isQuietHour (nothing is sent from 22:00 until 07:00).
   if (local.hour >= 7 && local.hour < 12) tags.add('morning');
   if (local.hour >= 17 && local.hour < 23) tags.add('evening');
   return tags;
@@ -188,6 +190,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 export function localTime(now: Date, timeZone: string | null): LocalTime {
   for (const zone of [timeZone, 'UTC']) {
     if (!zone) continue;
+    const known = zone === timeZone;
     try {
       const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: zone,
@@ -207,6 +210,7 @@ export function localTime(now: Date, timeZone: string | null): LocalTime {
       return {
         date: `${year}-${pad(month)}-${pad(day)}`,
         hour,
+        known,
         monthStart: `${year}-${pad(month)}-01`,
         daysLeftInMonth: daysInMonth - day,
       };
@@ -215,6 +219,22 @@ export function localTime(now: Date, timeZone: string | null): LocalTime {
     }
   }
   throw new Error('localTime: UTC should always resolve');
+}
+
+/** Mom stays quiet from 22:00 until 07:00 in the person's own timezone. */
+export const QUIET_FROM_HOUR = 22;
+export const QUIET_UNTIL_HOUR = 7;
+
+/**
+ * True when it is the middle of the night for them. If their timezone is
+ * unknown the hour would only be a UTC guess, which is as likely to silence
+ * their morning as to protect their night, so no quiet hours are applied.
+ * (The app re-saves the timezone on every launch and return to the app, so
+ * that gap closes itself.)
+ */
+export function isQuietHour(local: LocalTime): boolean {
+  if (!local.known) return false;
+  return local.hour >= QUIET_FROM_HOUR || local.hour < QUIET_UNTIL_HOUR;
 }
 
 export function daysBetween(from: string, to: string): number {

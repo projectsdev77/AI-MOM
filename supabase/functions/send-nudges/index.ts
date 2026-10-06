@@ -12,6 +12,8 @@
 //   copy.ts    the actual wording, in three tones
 // Tasks are for everyone; health and finance are Full-plan only, and
 // share the same single nudge rather than being separate ones.
+// Nothing is sent from 22:00 until 07:00 in the person's own timezone
+// (topics.ts isQuietHour); they stay due and get theirs after 07:00.
 //
 // FCM v1 needs an OAuth2 access token minted from a Firebase service
 // account — there's no simple static server key anymore (Google
@@ -22,7 +24,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { renderNudge, toneFor } from './copy.ts';
 import { type PushOutcome, pushOutcome } from './fcm.ts';
 import { loadFacts } from './facts.ts';
-import { type Candidate, chooseNudge, type Facts, localTime, type LocalTime, type Topic } from './topics.ts';
+import { type Candidate, chooseNudge, type Facts, isQuietHour, localTime, type LocalTime, type Topic } from './topics.ts';
 
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
@@ -148,10 +150,17 @@ Deno.serve(async (req) => {
 
   let sent = 0;
   let skipped = 0;
+  let quiet = 0;
   let deadTokens = 0;
   const sentByTopic = new Map<Topic, string[]>();
   for (const candidate of people) {
     try {
+      // Night time for them: say nothing. Not stamped, so they are still due
+      // and get their nudge on the first hourly run after 07:00.
+      if (isQuietHour(localById.get(candidate.user_id)!)) {
+        quiet++;
+        continue;
+      }
       const chosen = chooseNudge(candidate, facts.get(candidate.user_id), localById.get(candidate.user_id)!);
       if (!chosen) {
         // Nothing worth saying (e.g. a paying user with no open tasks and
@@ -189,7 +198,7 @@ Deno.serve(async (req) => {
   }
 
   const byTopic = Object.fromEntries([...sentByTopic].map(([topic, ids]) => [topic, ids.length]));
-  return new Response(JSON.stringify({ sent, skipped, deadTokens, candidates: candidates.length, byTopic }), {
+  return new Response(JSON.stringify({ sent, skipped, quiet, deadTokens, candidates: candidates.length, byTopic }), {
     headers: { 'Content-Type': 'application/json' },
   });
 });

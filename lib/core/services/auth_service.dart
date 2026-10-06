@@ -193,6 +193,13 @@ class AuthService {
     }
   }
 
+  /// Re-saves the device timezone for the signed-in user (e.g. after travel),
+  /// so nudges and quiet hours follow where they actually are.
+  Future<void> refreshTimezone() async {
+    final userId = currentUser?.id;
+    if (userId != null) await _saveTimezone(userId);
+  }
+
   /// Same as [_afterSignIn], but public so main.dart can call it for a
   /// session that's just *resuming* on app launch (Supabase persists
   /// sessions locally, so most launches never go through

@@ -51,6 +51,15 @@ class PurchasesService {
   /// RevenueCat key is set).
   static Future<bool> get isAvailable async => !kIsWeb && await Purchases.isConfigured;
 
+  /// Fetches the latest purchase state from RevenueCat, skipping its cache.
+  /// Changes (a purchase, a cancel or a refund made outside the app) reach the
+  /// app through the customer-info listener, so nothing is returned here.
+  static Future<void> refreshCustomerInfo() async {
+    if (!await isAvailable) return;
+    await Purchases.invalidateCustomerInfoCache();
+    await Purchases.getCustomerInfo();
+  }
+
   /// Asks the store for this account's past purchases. Returns whether the
   /// Full plan is now active. Throws if the store can't be reached.
   static Future<bool> restorePurchases() async {

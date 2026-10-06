@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers/theme_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_resume_refresher.dart';
 import 'router.dart';
 
 class AiMomApp extends ConsumerWidget {
@@ -17,6 +18,7 @@ class AiMomApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
       routerConfig: appRouter,
+      builder: (context, child) => AppResumeRefresher(child: child ?? const SizedBox.shrink()),
     );
   }
 }
