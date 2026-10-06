@@ -81,6 +81,19 @@ class ProfileRepository {
     return _client.from('profiles').update({'fcm_token': token}).eq('id', userId);
   }
 
+  Future<void> updateQuietHours({
+    required String userId,
+    required bool enabled,
+    required int from,
+    required int until,
+  }) {
+    return _client.from('profiles').update({
+      'quiet_hours_enabled': enabled,
+      'quiet_from_hour': from,
+      'quiet_until_hour': until,
+    }).eq('id', userId);
+  }
+
   Future<void> updatePushNudgesEnabled({required String userId, required bool enabled}) {
     return _client.from('profiles').update({'push_nudges_enabled': enabled}).eq('id', userId);
   }

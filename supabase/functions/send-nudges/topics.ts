@@ -40,6 +40,11 @@ export interface Candidate {
   living_situation?: string | null;
   // Only whether a stressor was given, never its text: see that migration.
   has_stressor?: boolean | null;
+  // Their chosen quiet hours (0019_quiet_hours.sql). Optional: a row from before
+  // that migration simply gets the default window.
+  quiet_hours_enabled?: boolean | null;
+  quiet_from_hour?: number | null;
+  quiet_until_hour?: number | null;
 }
 
 export interface HealthFacts {
@@ -221,20 +226,44 @@ export function localTime(now: Date, timeZone: string | null): LocalTime {
   throw new Error('localTime: UTC should always resolve');
 }
 
-/** Mom stays quiet from 22:00 until 07:00 in the person's own timezone. */
-export const QUIET_FROM_HOUR = 22;
-export const QUIET_UNTIL_HOUR = 7;
+/** The window Mom stays quiet in unless the person has chosen their own. */
+export const DEFAULT_QUIET_FROM_HOUR = 22;
+export const DEFAULT_QUIET_UNTIL_HOUR = 7;
+
+export interface QuietHours {
+  enabled: boolean;
+  from: number; // hour 0-23 the quiet time starts
+  until: number; // hour 0-23 it ends (nudges are fine again from this hour)
+}
+
+/** A person's own quiet hours, with the default for anything they haven't set. */
+export function quietHoursOf(c: Pick<Candidate, 'quiet_hours_enabled' | 'quiet_from_hour' | 'quiet_until_hour'>): QuietHours {
+  const hour = (v: number | null | undefined, fallback: number) =>
+    typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 23 ? v : fallback;
+  return {
+    enabled: c.quiet_hours_enabled ?? true,
+    from: hour(c.quiet_from_hour, DEFAULT_QUIET_FROM_HOUR),
+    until: hour(c.quiet_until_hour, DEFAULT_QUIET_UNTIL_HOUR),
+  };
+}
+
+const DEFAULT_QUIET: QuietHours = { enabled: true, from: DEFAULT_QUIET_FROM_HOUR, until: DEFAULT_QUIET_UNTIL_HOUR };
 
 /**
- * True when it is the middle of the night for them. If their timezone is
- * unknown the hour would only be a UTC guess, which is as likely to silence
- * their morning as to protect their night, so no quiet hours are applied.
- * (The app re-saves the timezone on every launch and return to the app, so
- * that gap closes itself.)
+ * True when it is inside their quiet hours. A window whose start is later than
+ * its end crosses midnight (22 to 7); one that starts earlier stays within a
+ * day (13 to 15); equal values mean no quiet hours at all.
+ *
+ * If their timezone is unknown the hour would only be a UTC guess, which is as
+ * likely to silence their morning as to protect their night, so no quiet hours
+ * are applied. (The app re-saves the timezone on every launch and return to the
+ * app, so that gap closes itself.)
  */
-export function isQuietHour(local: LocalTime): boolean {
-  if (!local.known) return false;
-  return local.hour >= QUIET_FROM_HOUR || local.hour < QUIET_UNTIL_HOUR;
+export function isQuietHour(local: LocalTime, quiet: QuietHours = DEFAULT_QUIET): boolean {
+  if (!local.known || !quiet.enabled || quiet.from === quiet.until) return false;
+  return quiet.from < quiet.until
+    ? local.hour >= quiet.from && local.hour < quiet.until
+    : local.hour >= quiet.from || local.hour < quiet.until;
 }
 
 export function daysBetween(from: string, to: string): number {

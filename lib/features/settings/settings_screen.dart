@@ -23,9 +23,11 @@ import '../../core/theme/mom_tokens.dart';
 import '../../core/theme/mom_typography.dart';
 import '../../core/utils/friendly_error.dart';
 import '../../core/utils/password.dart';
+import '../../core/utils/quiet_hours.dart';
 import '../../core/widgets/mom_avatar.dart';
 import '../../core/widgets/mom_components.dart';
 import 'legal_screens.dart';
+import 'quiet_hours_dialog.dart';
 import 'onboarding_answers_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -101,6 +103,32 @@ class SettingsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(friendlyError(e))),
         );
+      }
+    }
+  }
+
+  Future<void> _pickQuietHours(BuildContext context, WidgetRef ref, Map<String, dynamic>? profile) async {
+    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+    if (userId == null) return;
+    final enabled = (profile?['quiet_hours_enabled'] as bool?) ?? true;
+    final from = (profile?['quiet_from_hour'] as num?)?.toInt() ?? defaultQuietFromHour;
+    final until = (profile?['quiet_until_hour'] as num?)?.toInt() ?? defaultQuietUntilHour;
+    final choice = await showDialog<QuietHoursChoice>(
+      context: context,
+      builder: (context) => QuietHoursDialog(enabled: enabled, from: from, until: until),
+    );
+    if (choice == null || (choice.enabled == enabled && choice.from == from && choice.until == until)) return;
+    try {
+      await ref.read(profileRepositoryProvider).updateQuietHours(
+            userId: userId,
+            enabled: choice.enabled,
+            from: choice.from,
+            until: choice.until,
+          );
+      ref.invalidate(profileProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
@@ -428,6 +456,16 @@ class SettingsScreen extends ConsumerWidget {
                 label: 'Check-in frequency',
                 value: checkInFrequency,
                 onTap: () => _pickCheckInFrequency(context, ref, checkInFrequency),
+              ),
+              _Row(
+                icon: LucideIcons.moon,
+                label: 'Quiet hours',
+                value: quietHoursLabel(
+                  enabled: (profile?['quiet_hours_enabled'] as bool?) ?? true,
+                  from: (profile?['quiet_from_hour'] as num?)?.toInt() ?? defaultQuietFromHour,
+                  until: (profile?['quiet_until_hour'] as num?)?.toInt() ?? defaultQuietUntilHour,
+                ),
+                onTap: () => _pickQuietHours(context, ref, profile),
               ),
               _Row(
                 icon: LucideIcons.notebookPen,
