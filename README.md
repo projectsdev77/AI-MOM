@@ -35,6 +35,26 @@ supabase link --project-ref your-project-ref
 supabase functions deploy mom-chat delete-account revenuecat-webhook send-nudges
 ```
 
+### RevenueCat webhook (required for paid plans to work)
+
+The app learns about a purchase from RevenueCat directly, but the server only
+knows what is in `profiles.plan` — and only this webhook updates it. Without it
+a user who buys Full sees the Full screens but still hits the Basic limits
+(5 tasks, weekly chat cap, no health/finance nudges).
+
+1. Pick a long random secret and store it:
+   `supabase secrets set REVENUECAT_WEBHOOK_SECRET=<secret>`
+2. Deploy without the login-token check (RevenueCat can't send one; the
+   function checks the secret itself):
+   `supabase functions deploy revenuecat-webhook --no-verify-jwt`
+3. RevenueCat > Project settings > Integrations > Webhooks > add a webhook:
+   URL `https://<project-ref>.supabase.co/functions/v1/revenuecat-webhook`,
+   Authorization header `Bearer <secret>`, events for both Production and
+   Sandbox.
+4. Test: make a purchase, then check `profiles.plan` is `full`. Turning off
+   auto-renew keeps Full until the paid period ends, then `EXPIRATION` sets it
+   back to `basic`.
+
 ### Email verification (required for production)
 
 Signing up with email and password asks for a 6-digit code before the
