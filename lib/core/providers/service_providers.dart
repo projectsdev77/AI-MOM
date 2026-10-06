@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
 import '../models/plan.dart';
+import '../models/subscription_status.dart';
 import '../repositories/chat_repository.dart';
 import '../repositories/finance_repository.dart';
 import '../repositories/health_repository.dart';
@@ -91,6 +92,14 @@ final customerInfoProvider = StreamProvider<CustomerInfo?>((ref) {
   });
 
   return controller.stream;
+});
+
+/// The Full plan's details (renewal date, status, store) for Settings.
+final subscriptionStatusProvider = Provider<SubscriptionStatus>((ref) {
+  return SubscriptionStatus.fromCustomerInfo(
+    ref.watch(customerInfoProvider).valueOrNull,
+    entitlementId: PurchasesService.fullEntitlementId,
+  );
 });
 
 final entitlementPlanProvider = Provider<AppPlan?>((ref) {

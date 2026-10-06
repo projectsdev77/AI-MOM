@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../../core/models/plan.dart';
+import '../../core/models/subscription_status.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/purchases_service.dart';
@@ -84,10 +85,18 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
 
   Future<void> _restore() async {
     try {
-      await PurchasesService.restorePurchases();
+      if (!await PurchasesService.isAvailable) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Purchases aren't available on this device.")),
+          );
+        }
+        return;
+      }
+      final restoredFull = await PurchasesService.restorePurchases();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Purchases restored.')),
+          SnackBar(content: Text(restoreResultMessage(restoredFull: restoredFull))),
         );
       }
     } catch (e) {

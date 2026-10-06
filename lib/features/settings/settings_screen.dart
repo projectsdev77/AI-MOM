@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/check_in_frequency.dart';
 import '../../core/models/plan.dart';
+import '../../core/models/subscription_status.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/theme_provider.dart';
@@ -334,21 +336,6 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _manageSubscription(BuildContext context) async {
-    final url = kIsWeb
-        ? null
-        : (Platform.isIOS
-            ? 'itms-apps://apps.apple.com/account/subscriptions'
-            : 'https://play.google.com/store/account/subscriptions');
-    if (url == null || !await launchUrl(Uri.parse(url))) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Manage your subscription from your App Store or Play Store account.')),
-        );
-      }
-    }
-  }
-
   Future<void> _openNotificationSettings(BuildContext context) async {
     if (kIsWeb || !(await openAppSettings())) {
       if (context.mounted) {
@@ -429,19 +416,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
             ]),
-            _Group(title: 'Subscription', rows: [
-              _Row(icon: LucideIcons.crown, label: 'Current plan', value: plan.displayName),
-              _Row(
-                icon: LucideIcons.refreshCw,
-                label: 'Restore purchases',
-                onTap: PurchasesService.restorePurchases,
-              ),
-              _Row(
-                icon: LucideIcons.externalLink,
-                label: 'Manage subscription',
-                onTap: () => _manageSubscription(context),
-              ),
-            ]),
+            const SubscriptionGroup(),
             _Group(title: 'Mom', rows: [
               _Row(
                 icon: LucideIcons.smile,
@@ -648,10 +623,24 @@ class _ToggleRow extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.label, this.value, this.destructive = false, this.onTap});
+  const _Row({
+    required this.icon,
+    required this.label,
+    this.value,
+    this.subtitle,
+    this.busy = false,
+    this.destructive = false,
+    this.onTap,
+  });
   final IconData icon;
   final String label;
   final String? value;
+
+  /// A smaller line under the label.
+  final String? subtitle;
+
+  /// Shows a spinner in place of the arrow and ignores taps while working.
+  final bool busy;
   final bool destructive;
   final VoidCallback? onTap;
 
@@ -661,7 +650,7 @@ class _Row extends StatelessWidget {
     final labelColor = destructive ? mom.danger : mom.ink;
     final chevronColor = destructive ? mom.dangerChevron : mom.inkMuted;
     return InkWell(
-      onTap: onTap ?? () {},
+      onTap: busy ? null : (onTap ?? () {}),
       child: Container(
         constraints: const BoxConstraints(minHeight: AppSpacing.momMinHitTarget),
         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -669,15 +658,122 @@ class _Row extends StatelessWidget {
           children: [
             Icon(icon, size: 20, color: destructive ? mom.danger : mom.espresso),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: Text(label, style: MomText.rowLabel(labelColor))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: MomText.rowLabel(labelColor)),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!, style: MomText.meta(mom.inkMuted, size: 12)),
+                  ],
+                ],
+              ),
+            ),
             if (value != null && value!.isNotEmpty)
               Text(value!, style: MomText.meta(mom.inkMuted, size: 12.5)),
             const SizedBox(width: AppSpacing.xs),
-            Icon(LucideIcons.chevronRight, size: 17, color: chevronColor),
+            if (busy)
+              SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2, color: mom.espresso))
+            else
+              Icon(LucideIcons.chevronRight, size: 17, color: chevronColor),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Settings > Subscription: the current plan and what it's doing, restoring a
+/// purchase made earlier, and getting to the store to change or cancel.
+class SubscriptionGroup extends ConsumerStatefulWidget {
+  const SubscriptionGroup({super.key});
+
+  @override
+  ConsumerState<SubscriptionGroup> createState() => SubscriptionGroupState();
+}
+
+class SubscriptionGroupState extends ConsumerState<SubscriptionGroup> {
+  bool _restoring = false;
+
+  void _say(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _restore() async {
+    if (_restoring) return;
+    if (!await PurchasesService.isAvailable) {
+      _say("Purchases aren't available on this device.");
+      return;
+    }
+    setState(() => _restoring = true);
+    try {
+      final restoredFull = await PurchasesService.restorePurchases();
+      _say(restoreResultMessage(restoredFull: restoredFull));
+    } catch (e) {
+      _say(friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
+  Future<void> _manage() async {
+    final status = ref.read(subscriptionStatusProvider);
+    final plan = ref.read(planProvider);
+    switch (decideManageAction(status, isFull: plan.isFull, isWeb: kIsWeb)) {
+      case ManageAction.upgrade:
+        context.push('/upgrade');
+      case ManageAction.openStore:
+        final url = storeSubscriptionsUrl(status, isIOS: Platform.isIOS);
+        final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication).catchError((_) => false);
+        if (!opened) _say('Manage your subscription from your App Store or Play Store account.');
+      case ManageAction.testPurchase:
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Test purchase'),
+            content: const Text(
+              'This plan was bought with the test store, so there is no App Store or Play Store subscription to manage. '
+              'A real purchase opens your store account here.',
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
+      case ManageAction.notStoreBacked:
+        _say("Your Full plan isn't tied to a store subscription, so there's nothing to manage here.");
+      case ManageAction.unavailable:
+        _say('Manage your subscription from your App Store or Play Store account.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = ref.watch(planProvider);
+    final status = ref.watch(subscriptionStatusProvider);
+    return _Group(title: 'Subscription', rows: [
+      _Row(
+        icon: LucideIcons.crown,
+        label: 'Current plan',
+        value: status.planTitle(isFull: plan.isFull),
+        subtitle: status.summary,
+        onTap: _manage,
+      ),
+      _Row(
+        icon: LucideIcons.refreshCw,
+        label: 'Restore purchases',
+        busy: _restoring,
+        onTap: _restore,
+      ),
+      _Row(
+        icon: LucideIcons.externalLink,
+        label: 'Manage subscription',
+        onTap: _manage,
+      ),
+    ]);
   }
 }
 

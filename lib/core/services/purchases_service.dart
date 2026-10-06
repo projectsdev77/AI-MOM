@@ -47,9 +47,15 @@ class PurchasesService {
   static bool hasFullEntitlement(CustomerInfo info) =>
       info.entitlements.active.containsKey(fullEntitlementId);
 
-  static Future<void> restorePurchases() async {
-    if (kIsWeb) return;
-    await Purchases.restorePurchases();
+  /// Whether there is a store to talk to on this device (not web, and a
+  /// RevenueCat key is set).
+  static Future<bool> get isAvailable async => !kIsWeb && await Purchases.isConfigured;
+
+  /// Asks the store for this account's past purchases. Returns whether the
+  /// Full plan is now active. Throws if the store can't be reached.
+  static Future<bool> restorePurchases() async {
+    final info = await Purchases.restorePurchases();
+    return hasFullEntitlement(info);
   }
 
   /// The current offering's packages (e.g. monthly/annual Full Mom
