@@ -27,51 +27,56 @@ TaskItem _task({RecurrenceType recurrence = RecurrenceType.daily, DateTime? crea
 Future<ProviderContainer> _setup({
   List<TaskItem> tasks = const [],
   bool loaded = true,
-  Duration accountAge = const Duration(days: 30),
+  bool everAddedTask = false,
   String name = 'Meaza',
 }) async {
   final container = ProviderContainer(overrides: [
     tasksProvider.overrideWith(() => _FakeTasks(tasks)),
     tasksLoadedProvider.overrideWith((ref) => loaded),
-    profileProvider.overrideWith((ref) async => {
-          'name': name,
-          'created_at': DateTime.now().subtract(accountAge).toUtc().toIso8601String(),
-        }),
+    hasEverAddedTaskProvider.overrideWith((ref) async => everAddedTask || tasks.isNotEmpty),
+    profileProvider.overrideWith((ref) async => {'name': name}),
   ]);
   addTearDown(container.dispose);
   await container.read(profileProvider.future);
+  await container.read(hasEverAddedTaskProvider.future);
   return container;
 }
 
 void main() {
-  test('brand-new account with no tasks: Mom says welcome, by name', () async {
-    final c = await _setup(accountAge: const Duration(minutes: 5));
+  test('an account that has never added a task: Mom says welcome, by name', () async {
+    final c = await _setup();
     expect(c.read(momGreetingProvider), MomGreeting.welcome);
     expect(c.read(momMessageProvider), startsWith('Welcome, Meaza!'));
     expect(c.read(momMessageProvider), isNot(contains('Not bad')));
   });
 
+  test('the name comes from the profile, whatever it is', () async {
+    final c = await _setup(name: 'Priya');
+    expect(c.read(momMessageProvider), startsWith('Welcome, Priya!'));
+  });
+
   test('welcome still reads fine when there is no name', () async {
-    final c = await _setup(accountAge: const Duration(minutes: 5), name: '  ');
+    final c = await _setup(name: '  ');
     expect(c.read(momMessageProvider), startsWith('Welcome! '));
   });
 
-  test('older account with no tasks: Mom says you have not added any', () async {
-    final c = await _setup(accountAge: const Duration(days: 3));
+  test('the welcome does not expire with time: it lasts until the first task', () async {
+    // Nothing in the greeting looks at how old the account is.
+    final c = await _setup();
+    expect(c.read(momGreetingProvider), MomGreeting.welcome);
+  });
+
+  test('after the first task is added the welcome is gone', () async {
+    final c = await _setup(tasks: [_task()]);
+    expect(c.read(momGreetingProvider), MomGreeting.normal);
+    expect(c.read(momMessageProvider), isNot(startsWith('Welcome')));
+  });
+
+  test('added a task and then deleted it: no second welcome, just "you have no tasks"', () async {
+    final c = await _setup(everAddedTask: true);
     expect(c.read(momGreetingProvider), MomGreeting.noTasks);
     expect(c.read(momMessageProvider), contains("haven't added any tasks"));
     expect(c.read(momMessageProvider), isNot(contains('Not bad')));
-  });
-
-  test('the welcome ends after a day even if the list is still empty', () async {
-    final c = await _setup(accountAge: const Duration(hours: 25));
-    expect(c.read(momGreetingProvider), MomGreeting.noTasks);
-  });
-
-  test('a new account that has added a task gets the normal score message, not the welcome', () async {
-    final c = await _setup(accountAge: const Duration(minutes: 5), tasks: [_task()]);
-    expect(c.read(momGreetingProvider), MomGreeting.normal);
-    expect(c.read(momMessageProvider), isNot(startsWith('Welcome')));
   });
 
   test('tasks exist but none are for today: says nothing is on the list today', () async {
@@ -82,7 +87,7 @@ void main() {
   });
 
   test('before the list has loaded Mom does not claim it is empty', () async {
-    final c = await _setup(loaded: false, accountAge: const Duration(minutes: 5));
+    final c = await _setup(loaded: false);
     expect(c.read(momGreetingProvider), MomGreeting.loading);
     expect(c.read(momMessageProvider), isNot(contains("haven't added")));
     expect(c.read(momMessageProvider), isNot(startsWith('Welcome')));

@@ -202,8 +202,8 @@ final momMoodProvider = Provider<MomMood>((ref) {
   return MomMood.veryDisappointed;
 });
 
-/// What Mom has to say right now, before the score comes into it: a brand-new
-/// account, an empty list, or a day with nothing on it each get their own line
+/// What Mom has to say right now, before the score comes into it: an account
+/// that has never had a task, an empty list, or a day with nothing on it each get their own line
 /// instead of the score-based one (an empty list scores 0 and would otherwise
 /// read as "not bad so far").
 enum MomGreeting { loading, welcome, noTasks, nothingToday, normal }
@@ -225,8 +225,14 @@ extension MomGreetingX on MomGreeting {
       };
 }
 
-/// How long after signing up Mom still says welcome (while the list is empty).
-const _welcomeWindow = Duration(days: 1);
+/// Whether this account has ever added a task (deleted ones count). Mom says
+/// welcome only until this turns true. Re-checked whenever the list changes.
+final hasEverAddedTaskProvider = FutureProvider.autoDispose<bool>((ref) async {
+  if (ref.watch(tasksProvider).isNotEmpty) return true;
+  final userId = ref.read(authServiceProvider).currentUser?.id;
+  if (userId == null) return false;
+  return ref.read(tasksRepositoryProvider).hasEverAddedTask(userId);
+});
 
 final momGreetingProvider = Provider<MomGreeting>((ref) {
   final tasks = ref.watch(tasksProvider);
@@ -235,9 +241,9 @@ final momGreetingProvider = Provider<MomGreeting>((ref) {
   if (!loaded || (profileAsync.isLoading && !profileAsync.hasValue)) return MomGreeting.loading;
 
   if (tasks.isEmpty) {
-    final createdAt = DateTime.tryParse('${profileAsync.valueOrNull?['created_at'] ?? ''}');
-    final isNew = createdAt != null && DateTime.now().difference(createdAt) < _welcomeWindow;
-    return isNew ? MomGreeting.welcome : MomGreeting.noTasks;
+    final everAdded = ref.watch(hasEverAddedTaskProvider);
+    if (everAdded.isLoading && !everAdded.hasValue) return MomGreeting.loading;
+    return everAdded.valueOrNull == true ? MomGreeting.noTasks : MomGreeting.welcome;
   }
   if (!tasks.any((t) => t.appliesToDay(DateTime.now()))) return MomGreeting.nothingToday;
   return MomGreeting.normal;

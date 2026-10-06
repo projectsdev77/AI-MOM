@@ -33,6 +33,13 @@ class TasksRepository {
     return raw;
   }
 
+  /// True if this account has ever had a task, including archived (deleted)
+  /// ones — so Mom's welcome only lasts until the very first task.
+  Future<bool> hasEverAddedTask(String userId) async {
+    final rows = await _client.from('tasks').select('id').eq('user_id', userId).limit(1);
+    return rows.isNotEmpty;
+  }
+
   Future<List<TaskItem>> fetchTasks(String userId) async {
     final today = _today();
 
