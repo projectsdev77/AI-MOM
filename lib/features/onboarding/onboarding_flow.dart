@@ -4,10 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../core/config/preview_mode.dart';
 import '../../core/constants/check_in_frequency.dart';
 import '../../core/constants/onboarding_options.dart';
 import '../../core/providers/app_state_provider.dart';
@@ -500,10 +498,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     onVerifyCode: _verifyEmailCode,
                     onResendCode: _resendEmailCode,
                     onEditEmail: _editEmail,
-                    onPreviewTap: () {
-                      previewModeEnabled = true;
-                      context.go('/dashboard');
-                    },
                   ),
                 ],
               ),
@@ -1114,7 +1108,6 @@ class _AuthStep extends StatefulWidget {
     required this.onVerifyCode,
     required this.onResendCode,
     required this.onEditEmail,
-    required this.onPreviewTap,
   });
 
   final TextEditingController emailController;
@@ -1131,7 +1124,6 @@ class _AuthStep extends StatefulWidget {
   final ValueChanged<String> onVerifyCode;
   final VoidCallback onResendCode;
   final VoidCallback onEditEmail;
-  final VoidCallback onPreviewTap;
 
   @override
   State<_AuthStep> createState() => _AuthStepState();
@@ -1377,13 +1369,6 @@ class _AuthStepState extends State<_AuthStep> {
                   ),
                   const TextSpan(text: '.'),
                 ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Center(
-              child: GestureDetector(
-                onTap: widget.submitting ? null : widget.onPreviewTap,
-                child: Text('Just looking around? Preview without an account', style: MomText.control(mom.inkMuted)),
               ),
             ),
           ],

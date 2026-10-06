@@ -1,7 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'core/config/preview_mode.dart';
 import 'core/routing/go_router_refresh_stream.dart';
 import 'core/routing/password_recovery_flag.dart';
 import 'features/chat/chat_history_screen.dart';
@@ -29,7 +28,7 @@ final appRouter = GoRouter(
     // login until the password is actually replaced — keep it pinned to
     // /reset-password regardless of where else it might otherwise land.
     if (isPasswordRecoverySession) return onResetPassword ? null : '/reset-password';
-    final loggedIn = Supabase.instance.client.auth.currentSession != null || previewModeEnabled;
+    final loggedIn = Supabase.instance.client.auth.currentSession != null;
     final onOnboarding = state.matchedLocation == '/onboarding';
     if (!loggedIn && !onOnboarding) return '/onboarding';
     if (loggedIn && onOnboarding) return '/dashboard';
