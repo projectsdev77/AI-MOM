@@ -711,8 +711,9 @@ class SubscriptionGroupState extends ConsumerState<SubscriptionGroup> {
     }
     setState(() => _restoring = true);
     try {
+      final wasAlreadyFull = ref.read(subscriptionStatusProvider).isActive;
       final restoredFull = await PurchasesService.restorePurchases();
-      _say(restoreResultMessage(restoredFull: restoredFull));
+      _say(restoreResultMessage(restoredFull: restoredFull, wasAlreadyFull: wasAlreadyFull));
     } catch (e) {
       _say(friendlyError(e));
     } finally {

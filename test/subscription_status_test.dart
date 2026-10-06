@@ -156,5 +156,9 @@ void main() {
   test('restore messages', () {
     expect(restoreResultMessage(restoredFull: true), contains('restored'));
     expect(restoreResultMessage(restoredFull: false), contains("couldn't find"));
+    // Already subscribed: nothing was lost, so it must not claim anything was restored.
+    final already = restoreResultMessage(restoredFull: true, wasAlreadyFull: true);
+    expect(already, contains('already active'));
+    expect(already, isNot(contains('restored')));
   });
 }

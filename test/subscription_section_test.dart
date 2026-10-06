@@ -155,6 +155,15 @@ void main() {
       expect(find.text('Welcome back — your Full plan is restored.'), findsOneWidget);
     });
 
+    testWidgets('already subscribed: says it is active, never "restored"', (tester) async {
+      _fakeRevenueCat(configured: true, restoreResult: _customer(full: true));
+      await _pump(tester, plan: AppPlan.full, status: _statusOf(_customer(full: true)));
+      await tester.tap(find.text('Restore purchases'));
+      await tester.pumpAndSettle();
+      expect(find.text("You're all set — your Full plan is already active."), findsOneWidget);
+      expect(find.textContaining('restored'), findsNothing);
+    });
+
     testWidgets('nothing to restore: says so', (tester) async {
       _fakeRevenueCat(configured: true, restoreResult: _customer(full: false));
       await _pump(tester, plan: AppPlan.basic);

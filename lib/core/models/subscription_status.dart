@@ -127,6 +127,11 @@ String storeSubscriptionsUrl(SubscriptionStatus status, {required bool isIOS}) {
   return isIOS ? 'itms-apps://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions';
 }
 
-/// The message after "Restore purchases" worked.
-String restoreResultMessage({required bool restoredFull}) =>
-    restoredFull ? 'Welcome back — your Full plan is restored.' : "We couldn't find a Full plan purchase to restore on this account.";
+/// The message after "Restore purchases". [wasAlreadyFull] is whether the Full
+/// plan was already active before the tap — then nothing was lost, so it must
+/// not say "restored".
+String restoreResultMessage({required bool restoredFull, bool wasAlreadyFull = false}) {
+  if (!restoredFull) return "We couldn't find a Full plan purchase to restore on this account.";
+  if (wasAlreadyFull) return "You're all set — your Full plan is already active.";
+  return 'Welcome back — your Full plan is restored.';
+}

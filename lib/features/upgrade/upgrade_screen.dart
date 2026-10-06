@@ -93,10 +93,11 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
         }
         return;
       }
+      final wasAlreadyFull = ref.read(subscriptionStatusProvider).isActive;
       final restoredFull = await PurchasesService.restorePurchases();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(restoreResultMessage(restoredFull: restoredFull))),
+          SnackBar(content: Text(restoreResultMessage(restoredFull: restoredFull, wasAlreadyFull: wasAlreadyFull))),
         );
       }
     } catch (e) {
