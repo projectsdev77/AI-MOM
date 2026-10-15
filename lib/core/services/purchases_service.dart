@@ -1,9 +1,17 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb, kReleaseMode;
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../config/env.dart';
+
+/// Whether a RevenueCat key can be used in this kind of build. RevenueCat's
+/// Test Store keys (`test_...`) deliberately close the app with a "Wrong API
+/// Key" popup when used in a release build, so a release build ignores one and
+/// runs without purchases instead of dying on launch. A real `goog_...` /
+/// `appl_...` key, or any key in a debug build, is fine.
+bool isUsableRevenueCatKey(String key, {required bool isRelease}) =>
+    key.isNotEmpty && !(isRelease && key.startsWith('test_'));
 
 /// RevenueCat wraps Apple/Google IAP behind one API — see the "why not
 /// Stripe" note in the planning doc: subscriptions consumed inside the
@@ -21,10 +29,23 @@ class PurchasesService {
   /// just returning false, so every method here has to check [kIsWeb]
   /// before touching `Platform` or the plugin at all.
 
+  static String get _platformKey => Platform.isIOS ? Env.revenueCatIosKey : Env.revenueCatAndroidKey;
+
+  /// True when this build has a RevenueCat key it is allowed to use.
+  static bool get hasUsableKey {
+    if (kIsWeb) return false;
+    return isUsableRevenueCatKey(_platformKey, isRelease: kReleaseMode);
+  }
+
   static Future<void> init() async {
     if (kIsWeb) return;
-    final apiKey = Platform.isIOS ? Env.revenueCatIosKey : Env.revenueCatAndroidKey;
-    if (apiKey.isEmpty) return; // allows local dev without a RevenueCat project yet
+    final apiKey = _platformKey;
+    if (!isUsableRevenueCatKey(apiKey, isRelease: kReleaseMode)) {
+      // No key yet (local dev), or a test key in a release build: run without
+      // purchases rather than configure RevenueCat.
+      if (apiKey.isNotEmpty) debugPrint('RevenueCat: ignoring a test key in a release build; purchases are off.');
+      return;
+    }
 
     await Purchases.setLogLevel(LogLevel.info);
     await Purchases.configure(PurchasesConfiguration(apiKey));
